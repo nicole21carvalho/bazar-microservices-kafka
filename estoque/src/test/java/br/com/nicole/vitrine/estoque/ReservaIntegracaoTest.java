@@ -30,6 +30,7 @@ import br.com.nicole.vitrine.comum.eventos.Evento.PedidoCancelado;
 import br.com.nicole.vitrine.comum.eventos.Evento.PedidoCriado;
 import br.com.nicole.vitrine.comum.eventos.LeitorDeEventos;
 import br.com.nicole.vitrine.comum.eventos.Topicos;
+import br.com.nicole.vitrine.comum.outbox.LimpezaDeDados;
 import br.com.nicole.vitrine.estoque.reserva.ReservaService;
 
 @SpringBootTest(properties = {"DB_SENHA_ESTOQUE=teste", "vitrine.outbox.intervalo=100ms"})
@@ -38,6 +39,7 @@ class ReservaIntegracaoTest {
 
     @Autowired JdbcTemplate jdbc;
     @Autowired ReservaService reservas;
+    @Autowired LimpezaDeDados limpeza;
     @Autowired KafkaTemplate<String, String> kafka;
     @Autowired ConsumerFactory<String, String> consumidores;
     @Autowired LeitorDeEventos leitor;
@@ -50,7 +52,7 @@ class ReservaIntegracaoTest {
     }
 
     private static PedidoCriado pedido(ItemPedido... itens) {
-        return new PedidoCriado(UUID.randomUUID(), "cliente-1", "ana@exemplo.com", List.of(itens), Instant.now());
+        return new PedidoCriado(UUID.randomUUID(), List.of(itens), Instant.now());
     }
 
     private int disponivel(String produto) {
@@ -143,5 +145,35 @@ class ReservaIntegracaoTest {
         // A mensagem seguinte foi processada normalmente.
         assertThat(mensageiro.eventos(Topicos.ESTOQUE, depois.pedidoId(), 1))
                 .singleElement().isInstanceOf(EstoqueReservado.class);
+    }
+
+    @Test
+    void limpeza_apaga_so_o_que_ja_foi_publicado_ha_mais_de_7_dias() {
+        UUID antigoPublicado = UUID.randomUUID();
+        UUID antigoPendente = UUID.randomUUID();
+        UUID recentePublicado = UUID.randomUUID();
+        String inserir = """
+                INSERT INTO outbox (id, topico, chave, tipo, payload, criado_em, publicado_em)
+                VALUES (?, 'vitrine.estoque', 'k', 'EstoqueReservado', '{}'::jsonb,
+                        now() - make_interval(days => ?), now() - make_interval(days => ?))
+                """;
+        jdbc.update(inserir, antigoPublicado, 30, 30);
+        jdbc.update(inserir, recentePublicado, 1, 1);
+        jdbc.update("""
+                INSERT INTO outbox (id, topico, chave, tipo, payload, criado_em)
+                VALUES (?, 'vitrine.estoque', 'k', 'EstoqueReservado', '{}'::jsonb, now() - interval '30 days')
+                """, antigoPendente);
+
+        limpeza.limpar();
+
+        assertThat(existe(antigoPublicado)).isFalse();
+        // Evento que ainda nao saiu nunca e apagado, por mais antigo que seja.
+        assertThat(existe(antigoPendente)).isTrue();
+        assertThat(existe(recentePublicado)).isTrue();
+        jdbc.update("DELETE FROM outbox WHERE id = ?", antigoPendente);
+    }
+
+    private boolean existe(UUID idOutbox) {
+        return jdbc.queryForObject("SELECT count(*) FROM outbox WHERE id = ?", Integer.class, idOutbox) == 1;
     }
 }

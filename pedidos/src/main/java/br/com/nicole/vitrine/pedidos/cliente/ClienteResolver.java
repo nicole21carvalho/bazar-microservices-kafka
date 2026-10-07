@@ -35,6 +35,11 @@ public class ClienteResolver implements HandlerMethodArgumentResolver {
             // Sem e-mail no token nao ha como avisar o cliente sobre o pedido.
             throw new ResponseStatusException(HttpStatus.FORBIDDEN, "O token não traz o e-mail do cliente");
         }
+        // E-mail nao confirmado pode ser de outra pessoa: alguem se cadastra com
+        // o e-mail da vitima e ela passa a receber os avisos de pedidos que nao fez.
+        if (!Boolean.TRUE.equals(token.getToken().getClaimAsBoolean("email_verified"))) {
+            throw new ResponseStatusException(HttpStatus.FORBIDDEN, "Confirme seu e-mail antes de fazer pedidos");
+        }
         return new Cliente(token.getToken().getSubject(), email);
     }
 }

@@ -41,6 +41,11 @@ server:
   shutdown: graceful
 
 management:
+  server:
+    # Actuator (saude e metricas) numa porta so de gerencia, que nunca e
+    # publicada: o Prometheus e as sondas de saude falam com ela pela rede
+    # interna. Na porta da aplicacao, /actuator nem existe.
+    port: 9000
   endpoints:
     web:
       exposure:

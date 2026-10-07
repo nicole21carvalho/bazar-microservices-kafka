@@ -13,6 +13,10 @@
     <artifactId>gateway</artifactId>
     <description>Porta de entrada unica: valida o token e encaminha para cada servico</description>
 
+    <properties>
+        <bucket4j.version>8.21.0</bucket4j.version>
+    </properties>
+
     <dependencies>
         <dependency>
             <groupId>org.springframework.cloud</groupId>
@@ -22,9 +26,25 @@
             <groupId>org.springframework.boot</groupId>
             <artifactId>spring-boot-starter-security-oauth2-resource-server</artifactId>
         </dependency>
+        <!-- Limite de requisicoes: Bucket4j conta, Caffeine guarda um contador
+             por usuario com tamanho maximo, para nao crescer sem fim. -->
+        <dependency>
+            <groupId>com.bucket4j</groupId>
+            <artifactId>bucket4j_jdk17-core</artifactId>
+            <version>${bucket4j.version}</version>
+        </dependency>
+        <dependency>
+            <groupId>com.github.ben-manes.caffeine</groupId>
+            <artifactId>caffeine</artifactId>
+        </dependency>
         <dependency>
             <groupId>org.springframework.boot</groupId>
             <artifactId>spring-boot-starter-actuator</artifactId>
+        </dependency>
+        <!-- O trace do pedido comeca aqui, na porta de entrada. -->
+        <dependency>
+            <groupId>org.springframework.boot</groupId>
+            <artifactId>spring-boot-starter-opentelemetry</artifactId>
         </dependency>
         <dependency>
             <groupId>io.micrometer</groupId>

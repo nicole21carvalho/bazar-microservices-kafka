@@ -1,0 +1,47 @@
+groups:
+  - name: vitrine
+    rules:
+      - alert: ServicoForaDoAr
+        expr: up{job="vitrine"} == 0
+        for: 1m
+        labels:
+          severidade: critica
+        annotations:
+          resumo: "{{ $labels.servico }} nao responde ha mais de 1 minuto"
+
+      - alert: OutboxAcumulando
+        # Eventos que nao saem do banco: Kafka fora do ar ou lento. Os pedidos
+        # continuam sendo aceitos, mas a saga para.
+        expr: vitrine_outbox_pendentes > 50
+        for: 2m
+        labels:
+          severidade: alta
+        annotations:
+          resumo: "{{ $value }} eventos parados no outbox de {{ $labels.servico }}"
+
+      - alert: MensagensNoDeadLetterTopic
+        expr: increase(vitrine_mensagens_dlt_total[10m]) > 0
+        labels:
+          severidade: alta
+        annotations:
+          resumo: "Mensagem de {{ $labels.topico }} foi para o DLT: precisa de alguem olhando"
+
+      - alert: SagaLenta
+        # p95: 95% dos pedidos terminam abaixo deste tempo.
+        expr: |
+          histogram_quantile(0.95,
+            sum by (le) (rate(vitrine_saga_duracao_seconds_bucket[10m]))) > 30
+        for: 10m
+        labels:
+          severidade: media
+        annotations:
+          resumo: "Pedidos levando mais de 30 s para confirmar ou cancelar (p95)"
+
+      - alert: ConsumidorAtrasado
+        # Mensagens esperando no topico sem serem lidas.
+        expr: max by (servico) (kafka_consumer_fetch_manager_records_lag_max) > 100
+        for: 5m
+        labels:
+          severidade: media
+        annotations:
+          resumo: "{{ $labels.servico }} esta {{ $value }} mensagens atras no Kafka"

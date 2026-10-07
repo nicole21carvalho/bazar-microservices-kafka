@@ -8,6 +8,9 @@ CREATE TABLE outbox (
     chave        VARCHAR(100) NOT NULL,
     tipo         VARCHAR(100) NOT NULL,
     payload      JSONB        NOT NULL,
+    -- Contexto do rastreamento (W3C traceparent) de quem criou o evento, para
+    -- a publicacao continuar o mesmo trace. Vazio se nao havia trace.
+    traceparent  VARCHAR(55),
     criado_em    TIMESTAMPTZ  NOT NULL,
     publicado_em TIMESTAMPTZ
 );

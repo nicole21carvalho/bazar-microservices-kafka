@@ -19,10 +19,12 @@ public sealed interface Evento {
 
     record ItemPedido(String produtoId, int quantidade) {}
 
-    /** pedidos -> estoque: um cliente fez um pedido. */
-    record PedidoCriado(
-            UUID pedidoId, String clienteId, String clienteEmail, List<ItemPedido> itens, Instant criadoEm)
-            implements Evento {}
+    /**
+     * pedidos -> estoque: um cliente fez um pedido. Sem e-mail nem id do
+     * cliente: o estoque so precisa dos itens. Dado pessoal que nao vai para o
+     * Kafka nao vaza pelo Kafka, nem fica guardado nos topicos (LGPD, art. 6, III).
+     */
+    record PedidoCriado(UUID pedidoId, List<ItemPedido> itens, Instant criadoEm) implements Evento {}
 
     /** estoque -> pedidos e pagamentos: os itens foram separados; o total ja tem os precos. */
     record EstoqueReservado(UUID pedidoId, BigDecimal total) implements Evento {}

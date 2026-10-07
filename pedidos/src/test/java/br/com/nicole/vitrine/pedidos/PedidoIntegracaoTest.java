@@ -5,6 +5,7 @@ import static org.awaitility.Awaitility.await;
 import static org.springframework.security.test.web.servlet.request.SecurityMockMvcRequestPostProcessors.jwt;
 
 import java.math.BigDecimal;
+import java.nio.charset.StandardCharsets;
 import java.time.Duration;
 import java.util.UUID;
 
@@ -57,7 +58,7 @@ class PedidoIntegracaoTest {
 
     /** Token JWT de teste, como o que o Keycloak emitiria para este cliente. */
     private static RequestPostProcessor cliente(String nome) {
-        return jwt().jwt(j -> j.subject(nome).claim("email", nome + "@exemplo.com"));
+        return jwt().jwt(j -> j.subject(nome).claim("email", nome + "@exemplo.com").claim("email_verified", true));
     }
 
     private UUID criarPedido(String cliente) {
@@ -90,7 +91,6 @@ class PedidoIntegracaoTest {
         assertThat(statusDe(id)).isEqualTo(Pedido.Status.PENDENTE);
         assertThat(mensageiro.eventos(Topicos.PEDIDOS, id, 1)).singleElement()
                 .isInstanceOfSatisfying(PedidoCriado.class, e -> {
-                    assertThat(e.clienteEmail()).isEqualTo("ana@exemplo.com");
                     assertThat(e.itens()).extracting(i -> i.produtoId() + "=" + i.quantidade())
                             .containsExactly("cafe-especial=2", "caneca-ceramica=2");
                 });
@@ -173,6 +173,34 @@ class PedidoIntegracaoTest {
                 .contentType(MediaType.APPLICATION_JSON).content("{\"itens\": []}"))
                 .hasStatus(HttpStatus.BAD_REQUEST);
         assertThat(pedidos.count()).isEqualTo(antes);
+    }
+
+    @Test
+    void o_trace_da_requisicao_atravessa_o_outbox_e_chega_no_kafka() {
+        // Trace iniciado "no navegador": o pedido inteiro deve continuar nele.
+        String traceId = "4bf92f3577b34da6a3ce929d0e0e4736";
+        var resposta = http.post().uri("/api/pedidos").with(cliente("iris"))
+                .header("traceparent", "00-" + traceId + "-00f067aa0ba902b7-01")
+                .contentType(MediaType.APPLICATION_JSON)
+                .content("{\"itens\": [{\"produtoId\": \"cafe-especial\", \"quantidade\": 1}]}")
+                .exchange();
+        String location = resposta.getResponse().getHeader("Location");
+        UUID id = UUID.fromString(location.substring(location.lastIndexOf('/') + 1));
+
+        var mensagem = mensageiro.esperar(Topicos.PEDIDOS, id.toString(), 1).getFirst();
+
+        var traceparent = mensagem.headers().lastHeader("traceparent");
+        assertThat(traceparent).as("cabecalho traceparent na mensagem").isNotNull();
+        assertThat(new String(traceparent.value(), StandardCharsets.UTF_8)).contains(traceId);
+    }
+
+    @Test
+    void email_nao_confirmado_nao_cria_pedido() {
+        assertThat(http.post().uri("/api/pedidos")
+                .with(jwt().jwt(j -> j.subject("jade").claim("email", "jade@exemplo.com").claim("email_verified", false)))
+                .contentType(MediaType.APPLICATION_JSON)
+                .content("{\"itens\": [{\"produtoId\": \"cafe-especial\", \"quantidade\": 1}]}"))
+                .hasStatus(HttpStatus.FORBIDDEN);
     }
 
     @Test

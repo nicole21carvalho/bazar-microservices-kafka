@@ -1,6 +1,8 @@
 package br.com.nicole.vitrine.pedidos.pedido;
 
 import java.math.BigDecimal;
+import java.time.Duration;
+import java.time.Instant;
 import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
@@ -19,6 +21,8 @@ import br.com.nicole.vitrine.comum.eventos.Evento.PedidoCriado;
 import br.com.nicole.vitrine.comum.eventos.Topicos;
 import br.com.nicole.vitrine.comum.outbox.Outbox;
 import br.com.nicole.vitrine.pedidos.cliente.Cliente;
+import io.micrometer.core.instrument.MeterRegistry;
+import io.micrometer.core.instrument.Timer;
 
 @Service
 public class PedidoService {
@@ -27,10 +31,12 @@ public class PedidoService {
 
     private final PedidoRepository pedidos;
     private final Outbox outbox;
+    private final MeterRegistry metricas;
 
-    public PedidoService(PedidoRepository pedidos, Outbox outbox) {
+    public PedidoService(PedidoRepository pedidos, Outbox outbox, MeterRegistry metricas) {
         this.pedidos = pedidos;
         this.outbox = outbox;
+        this.metricas = metricas;
     }
 
     /**
@@ -50,8 +56,6 @@ public class PedidoService {
         Pedido pedido = pedidos.save(new Pedido(cliente.id(), cliente.email(), itens));
         outbox.registrar(Topicos.PEDIDOS, new PedidoCriado(
                 pedido.getId(),
-                cliente.id(),
-                cliente.email(),
                 itens.stream().map(i -> new ItemPedido(i.produtoId(), i.quantidade())).toList(),
                 pedido.getCriadoEm()));
         log.info("Pedido {} criado com {} item(ns)", pedido.getId(), itens.size());
@@ -68,6 +72,7 @@ public class PedidoService {
         comPedido(pedidoId, p -> {
             if (p.confirmar(valor)) {
                 outbox.registrar(Topicos.PEDIDOS, new PedidoConfirmado(p.getId(), p.getClienteEmail(), valor));
+                registrarDesfecho(p);
                 log.info("Pedido {} confirmado", p.getId());
             }
         });
@@ -81,9 +86,24 @@ public class PedidoService {
                 // O estoque escuta este evento e devolve os itens, se tinha
                 // reservado (compensacao). As notificacoes avisam o cliente.
                 outbox.registrar(Topicos.PEDIDOS, new PedidoCancelado(p.getId(), p.getClienteEmail(), motivo));
+                registrarDesfecho(p);
                 log.info("Pedido {} cancelado: {}", p.getId(), motivo);
             }
         });
+    }
+
+    /**
+     * Quanto tempo o cliente esperou, do pedido ao desfecho, passando por
+     * estoque e pagamento. E o numero que importa para quem compra: a latencia
+     * de cada servico isolado nao mostra a espera somada.
+     */
+    private void registrarDesfecho(Pedido p) {
+        Timer.builder("vitrine.saga.duracao")
+                .description("Tempo do pedido criado ate confirmado ou cancelado")
+                .tag("status", p.getStatus().name())
+                .publishPercentileHistogram()
+                .register(metricas)
+                .record(Duration.between(p.getCriadoEm(), Instant.now()));
     }
 
     private void comPedido(UUID pedidoId, Consumer<Pedido> acao) {

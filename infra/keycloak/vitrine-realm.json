@@ -9,14 +9,21 @@
   "duplicateEmailsAllowed": false,
   "resetPasswordAllowed": false,
   "rememberMe": false,
-  "verifyEmail": false,
+  "verifyEmail": true,
 
   "sslRequired": "external",
   "bruteForceProtected": true,
   "failureFactor": 5,
   "waitIncrementSeconds": 60,
   "maxFailureWaitSeconds": 900,
-  "passwordPolicy": "length(8) and notUsername and notEmail",
+  "passwordPolicy": "length(10) and maxLength(128) and notUsername and notEmail",
+
+  "smtpServer": {
+    "host": "mailpit",
+    "port": "1025",
+    "from": "nao-responda@vitrine.local",
+    "fromDisplayName": "Vitrine"
+  },
 
   "accessTokenLifespan": 300,
   "ssoSessionIdleTimeout": 1800,

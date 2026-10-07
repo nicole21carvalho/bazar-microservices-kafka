@@ -31,12 +31,31 @@ spring:
 vitrine:
   cors:
     origens: ${CORS_ORIGENS:http://localhost:5173}
+  limites:
+    requisicoes-por-minuto: ${LIMITE_REQUISICOES:120}
+    # Criar pedido dispara estoque, pagamento e e-mail: e a operacao mais cara.
+    pedidos-por-minuto: ${LIMITE_PEDIDOS:10}
+    # Um pedido com 20 itens tem menos de 2 KB de JSON.
+    corpo-maximo: 16KB
 
 server:
   port: 8080
   shutdown: graceful
 
 management:
+  server:
+    # Actuator (saude e metricas) numa porta so de gerencia, que nunca e
+    # publicada: o Prometheus e as sondas de saude falam com ela pela rede
+    # interna. Na porta da aplicacao, /actuator nem existe.
+    port: 9000
+  tracing:
+    sampling:
+      probability: ${AMOSTRAGEM_TRACES:1.0}
+  opentelemetry:
+    tracing:
+      export:
+        otlp:
+          endpoint: ${OTLP_TRACES:http://localhost:4318/v1/traces}
   endpoints:
     web:
       exposure:

@@ -31,8 +31,7 @@ class LeitorDeEventosTest {
     @Test
     void evento_vai_e_volta_pelo_json_sem_perder_nada() {
         var evento = new PedidoCriado(
-                UUID.randomUUID(), "cliente-1", "ana@exemplo.com",
-                List.of(new ItemPedido("cafe-especial", 2)), Instant.parse("2026-10-07T12:00:00Z"));
+                UUID.randomUUID(), List.of(new ItemPedido("cafe-especial", 2)), Instant.parse("2026-10-07T12:00:00Z"));
         var id = UUID.randomUUID();
 
         var lida = leitor.ler(mensagem("PedidoCriado", id, leitor.paraJson(evento)));

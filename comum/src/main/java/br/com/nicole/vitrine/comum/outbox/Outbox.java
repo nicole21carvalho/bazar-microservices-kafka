@@ -24,10 +24,12 @@ public class Outbox {
 
     private final JdbcTemplate jdbc;
     private final LeitorDeEventos leitor;
+    private final Rastro rastro;
 
-    public Outbox(JdbcTemplate jdbc, LeitorDeEventos leitor) {
+    public Outbox(JdbcTemplate jdbc, LeitorDeEventos leitor, Rastro rastro) {
         this.jdbc = jdbc;
         this.leitor = leitor;
+        this.rastro = rastro;
     }
 
     public void registrar(String topico, Evento evento) {
@@ -38,14 +40,15 @@ public class Outbox {
         }
         jdbc.update(
                 """
-                INSERT INTO outbox (id, topico, chave, tipo, payload, criado_em)
-                VALUES (?, ?, ?, ?, ?::jsonb, ?)
+                INSERT INTO outbox (id, topico, chave, tipo, payload, traceparent, criado_em)
+                VALUES (?, ?, ?, ?, ?::jsonb, ?, ?)
                 """,
                 UUID.randomUUID(),
                 topico,
                 evento.pedidoId().toString(),
                 LeitorDeEventos.tipoDe(evento),
                 leitor.paraJson(evento),
+                rastro.atual(),
                 Timestamp.from(Instant.now()));
     }
 }

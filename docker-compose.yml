@@ -22,6 +22,7 @@ x-servico: &servico
     DB_SENHA_ESTOQUE: ${DB_SENHA_ESTOQUE:?defina no .env}
     DB_SENHA_PAGAMENTOS: ${DB_SENHA_PAGAMENTOS:?defina no .env}
     DB_SENHA_NOTIFICACOES: ${DB_SENHA_NOTIFICACOES:?defina no .env}
+    OTLP_TRACES: http://jaeger:4318/v1/traces
     JAVA_TOOL_OPTIONS: -XX:+UseSerialGC
   mem_limit: 512m
   depends_on:
@@ -92,11 +93,16 @@ services:
       - sh
       - -c
       - |
+        # Retencao: 7 dias nos topicos (o registro de idempotencia guarda 14),
+        # 30 dias no DLT, para dar tempo de alguem investigar a mensagem.
+        criar() {
+          /opt/kafka/bin/kafka-topics.sh --bootstrap-server kafka:9092 \
+            --create --if-not-exists --topic $$1 --partitions 3 --replication-factor 1 \
+            --config retention.ms=$$2
+        }
         for t in vitrine.pedidos vitrine.estoque vitrine.pagamentos; do
-          for nome in $$t $$t-dlt; do
-            /opt/kafka/bin/kafka-topics.sh --bootstrap-server kafka:9092 \
-              --create --if-not-exists --topic $$nome --partitions 3 --replication-factor 1
-          done
+          criar $$t 604800000
+          criar $$t-dlt 2592000000
         done
     restart: "no"
 
@@ -151,13 +157,13 @@ services:
       KEYCLOAK_EMISSOR: http://localhost:8180/realms/vitrine
       KEYCLOAK_CHAVES: http://keycloak:8080/realms/vitrine/protocol/openid-connect/certs
       CORS_ORIGENS: http://localhost:5173
-      PORTA: 8080
+      OTLP_TRACES: http://jaeger:4318/v1/traces
       JAVA_TOOL_OPTIONS: -XX:+UseSerialGC
     # A unica porta da loja aberta para fora: tudo passa pelo gateway.
     ports:
       - "127.0.0.1:8080:8080"
     healthcheck: &saude_gateway
-      test: ["CMD-SHELL", "wget -qO- http://localhost:$$PORTA/actuator/health/readiness > /dev/null"]
+      test: ["CMD-SHELL", "wget -qO- http://localhost:9000/actuator/health/readiness > /dev/null"]
       interval: 10s
       timeout: 5s
       retries: 12
@@ -169,6 +175,46 @@ services:
         condition: service_healthy
       estoque:
         condition: service_healthy
+
+  # --- Observabilidade ---------------------------------------------------
+  # Jaeger: recebe os traces por OTLP e mostra cada pedido atravessando os
+  # servicos e o Kafka. http://localhost:16686
+  jaeger:
+    image: jaegertracing/jaeger:2.22.0
+    <<: *seguro
+    ports:
+      - "127.0.0.1:16686:16686"
+    mem_limit: 256m
+
+  prometheus:
+    image: prom/prometheus:v3.15.0
+    <<: *seguro
+    volumes:
+      - ./infra/prometheus:/etc/prometheus:ro
+    ports:
+      # Paineis so na propria maquina, nunca na rede.
+      - "127.0.0.1:9090:9090"
+    depends_on:
+      - gateway
+
+  grafana:
+    image: grafana/grafana:13.2
+    <<: *seguro
+    environment:
+      # So leitura e sem login: os paineis sao codigo (infra/grafana) e mudam
+      # por commit. Sem o formulario, ninguem entra com a senha padrao "admin".
+      GF_AUTH_ANONYMOUS_ENABLED: "true"
+      GF_AUTH_ANONYMOUS_ORG_ROLE: Viewer
+      GF_AUTH_DISABLE_LOGIN_FORM: "true"
+      GF_AUTH_BASIC_ENABLED: "false"
+      GF_DASHBOARDS_DEFAULT_HOME_DASHBOARD_PATH: /var/lib/grafana/dashboards/vitrine.json
+    volumes:
+      - ./infra/grafana/provisioning:/etc/grafana/provisioning:ro
+      - ./infra/grafana/dashboards:/var/lib/grafana/dashboards:ro
+    ports:
+      - "127.0.0.1:3000:3000"
+    depends_on:
+      - prometheus
 
   mailpit:
     image: axllent/mailpit:v1.31
@@ -184,14 +230,13 @@ services:
       args:
         SERVICO: pedidos
     healthcheck: &saude
-      test: ["CMD-SHELL", "wget -qO- http://localhost:$$PORTA/actuator/health/readiness > /dev/null"]
+      test: ["CMD-SHELL", "wget -qO- http://localhost:9000/actuator/health/readiness > /dev/null"]
       interval: 10s
       timeout: 5s
       retries: 12
       start_period: 30s
     environment:
       <<: *ambiente
-      PORTA: 8081
       KEYCLOAK_EMISSOR: http://localhost:8180/realms/vitrine
       KEYCLOAK_CHAVES: http://keycloak:8080/realms/vitrine/protocol/openid-connect/certs
 
@@ -204,7 +249,6 @@ services:
     healthcheck: *saude
     environment:
       <<: *ambiente
-      PORTA: 8082
 
   pagamentos:
     <<: *servico
@@ -215,7 +259,6 @@ services:
     healthcheck: *saude
     environment:
       <<: *ambiente
-      PORTA: 8083
       LIMITE_APROVACAO: "1000.00"
 
   notificacoes:
@@ -227,7 +270,6 @@ services:
     healthcheck: *saude
     environment:
       <<: *ambiente
-      PORTA: 8084
       SMTP_HOST: mailpit
     depends_on:
       db:
