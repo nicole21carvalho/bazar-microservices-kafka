@@ -1,0 +1,43 @@
+spring:
+  application:
+    name: pagamentos
+  datasource:
+    url: jdbc:postgresql://${DB_HOST:localhost}:5432/pagamentos
+    username: pagamentos
+    # Sem valor padrao: a senha vem do ambiente (.env no compose, Secret no
+    # Kubernetes) e nunca fica escrita no repositorio.
+    password: ${DB_SENHA_PAGAMENTOS}
+  jpa:
+    hibernate:
+      ddl-auto: validate
+    open-in-view: false
+  flyway:
+    # As tabelas comuns (outbox, idempotencia) vem do modulo "comum".
+    locations: classpath:db/comum,classpath:db/migration
+  kafka:
+    bootstrap-servers: ${KAFKA_SERVIDORES:localhost:9092}
+    consumer:
+      auto-offset-reset: earliest
+    producer:
+      # Confirmacao de todas as replicas antes de considerar o evento enviado.
+      acks: all
+
+server:
+  port: 8083
+  shutdown: graceful
+
+management:
+  endpoints:
+    web:
+      exposure:
+        include: health,prometheus
+  endpoint:
+    health:
+      probes:
+        enabled: true
+
+vitrine:
+  pagamentos:
+    # Acima disso o "cartao" recusa: e o que faz a demonstracao mostrar a
+    # compensacao da saga (o estoque devolve os itens).
+    limite-aprovacao: ${LIMITE_APROVACAO:1000.00}

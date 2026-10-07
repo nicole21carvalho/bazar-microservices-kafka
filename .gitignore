@@ -1,0 +1,24 @@
+# Segredos
+.env
+.env*.local
+
+# Build
+target/
+node_modules/
+dist/
+*.tsbuildinfo
+
+# Terraform: estado e variaveis podem ter segredos e IDs da conta na nuvem
+.terraform/
+*.tfstate
+*.tfstate.*
+*.tfvars
+!*.tfvars.example
+.terraform.lock.hcl.bak
+
+# Editores e sistema
+.idea/
+.vscode/
+*.iml
+.DS_Store
+Thumbs.db

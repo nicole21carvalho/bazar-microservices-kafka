@@ -1,0 +1,9 @@
+# Texto sempre com LF: scripts copiados para as imagens Linux quebram com CRLF
+# (o "sh\r: not found" e o classico, e o criar-bancos.sh e um desses scripts).
+* text=auto eol=lf
+
+*.png binary
+*.jpg binary
+*.gif binary
+*.ico binary
+*.jar binary
