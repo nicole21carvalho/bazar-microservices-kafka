@@ -26,6 +26,7 @@
         <module>estoque</module>
         <module>pagamentos</module>
         <module>notificacoes</module>
+        <module>gateway</module>
     </modules>
 
     <properties>

@@ -18,6 +18,16 @@ spring:
   flyway:
     # As tabelas comuns (outbox, idempotencia) vem do modulo "comum".
     locations: classpath:db/comum,classpath:db/migration
+  security:
+    oauth2:
+      resourceserver:
+        jwt:
+          # Mesmo emissor e mesma audiencia que o gateway confere. O pedidos
+          # valida o token de novo: se alguem chegar nele sem passar pelo
+          # gateway (rede interna comprometida), continua barrado.
+          issuer-uri: ${KEYCLOAK_EMISSOR:http://localhost:8180/realms/vitrine}
+          jwk-set-uri: ${KEYCLOAK_CHAVES:http://localhost:8180/realms/vitrine/protocol/openid-connect/certs}
+          audiences: vitrine-api
   kafka:
     bootstrap-servers: ${KAFKA_SERVIDORES:localhost:9092}
     consumer:

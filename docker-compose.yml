@@ -41,6 +41,7 @@ services:
       DB_SENHA_ESTOQUE: ${DB_SENHA_ESTOQUE:?defina no .env}
       DB_SENHA_PAGAMENTOS: ${DB_SENHA_PAGAMENTOS:?defina no .env}
       DB_SENHA_NOTIFICACOES: ${DB_SENHA_NOTIFICACOES:?defina no .env}
+      DB_SENHA_KEYCLOAK: ${DB_SENHA_KEYCLOAK:?defina no .env}
     volumes:
       # No Postgres 18 o volume vai em /var/lib/postgresql, e nao em .../data.
       - dados_postgres:/var/lib/postgresql
@@ -99,6 +100,76 @@ services:
         done
     restart: "no"
 
+  keycloak:
+    image: quay.io/keycloak/keycloak:26.8.0
+    <<: *seguro
+    command: ["start", "--import-realm"]
+    environment:
+      KC_BOOTSTRAP_ADMIN_USERNAME: admin
+      KC_BOOTSTRAP_ADMIN_PASSWORD: ${KC_SENHA_ADMIN:?defina no .env}
+      KC_DB: postgres
+      KC_DB_URL: jdbc:postgresql://db:5432/keycloak
+      KC_DB_USERNAME: keycloak
+      KC_DB_PASSWORD: ${DB_SENHA_KEYCLOAK:?defina no .env}
+      # O endereco que o navegador usa: vai no "iss" de todo token. Os servicos
+      # buscam as chaves pelo endereco interno (keycloak:8080).
+      KC_HOSTNAME: http://localhost:8180
+      KC_HOSTNAME_BACKCHANNEL_DYNAMIC: "true"
+      # HTTP so porque e local. Exposto na internet, Keycloak so com HTTPS.
+      KC_HTTP_ENABLED: "true"
+      KC_HEALTH_ENABLED: "true"
+    volumes:
+      - ./infra/keycloak/vitrine-realm.json:/opt/keycloak/data/import/vitrine-realm.json:ro
+    ports:
+      - "127.0.0.1:8180:8080"
+    mem_limit: 768m
+    healthcheck:
+      # A imagem nao tem curl: a checagem fala HTTP direto pelo /dev/tcp do bash.
+      # Aspas simples no YAML: as barras chegam intactas ao printf, que as interpreta.
+      test: ["CMD-SHELL", 'exec 3<>/dev/tcp/localhost/9000 && printf "GET /health/ready HTTP/1.1\r\nHost: localhost\r\nConnection: close\r\n\r\n" >&3 && grep -q "200 OK" <&3']
+      interval: 10s
+      timeout: 5s
+      retries: 30
+      start_period: 30s
+    depends_on:
+      db:
+        condition: service_healthy
+
+  gateway:
+    <<: *seguro
+    build:
+      context: .
+      args:
+        SERVICO: gateway
+    read_only: true
+    tmpfs:
+      - /tmp:size=64m
+    mem_limit: 384m
+    environment:
+      ESTOQUE_URL: http://estoque:8082
+      PEDIDOS_URL: http://pedidos:8081
+      KEYCLOAK_EMISSOR: http://localhost:8180/realms/vitrine
+      KEYCLOAK_CHAVES: http://keycloak:8080/realms/vitrine/protocol/openid-connect/certs
+      CORS_ORIGENS: http://localhost:5173
+      PORTA: 8080
+      JAVA_TOOL_OPTIONS: -XX:+UseSerialGC
+    # A unica porta da loja aberta para fora: tudo passa pelo gateway.
+    ports:
+      - "127.0.0.1:8080:8080"
+    healthcheck: &saude_gateway
+      test: ["CMD-SHELL", "wget -qO- http://localhost:$$PORTA/actuator/health/readiness > /dev/null"]
+      interval: 10s
+      timeout: 5s
+      retries: 12
+      start_period: 30s
+    depends_on:
+      keycloak:
+        condition: service_healthy
+      pedidos:
+        condition: service_healthy
+      estoque:
+        condition: service_healthy
+
   mailpit:
     image: axllent/mailpit:v1.31
     <<: *seguro
@@ -112,8 +183,6 @@ services:
       context: .
       args:
         SERVICO: pedidos
-    ports:
-      - "127.0.0.1:8081:8081"
     healthcheck: &saude
       test: ["CMD-SHELL", "wget -qO- http://localhost:$$PORTA/actuator/health/readiness > /dev/null"]
       interval: 10s
@@ -123,6 +192,8 @@ services:
     environment:
       <<: *ambiente
       PORTA: 8081
+      KEYCLOAK_EMISSOR: http://localhost:8180/realms/vitrine
+      KEYCLOAK_CHAVES: http://keycloak:8080/realms/vitrine/protocol/openid-connect/certs
 
   estoque:
     <<: *servico
@@ -130,8 +201,6 @@ services:
       context: .
       args:
         SERVICO: estoque
-    ports:
-      - "127.0.0.1:8082:8082"
     healthcheck: *saude
     environment:
       <<: *ambiente

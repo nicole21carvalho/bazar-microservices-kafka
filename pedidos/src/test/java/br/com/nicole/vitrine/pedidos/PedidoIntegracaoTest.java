@@ -2,6 +2,7 @@ package br.com.nicole.vitrine.pedidos;
 
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.awaitility.Awaitility.await;
+import static org.springframework.security.test.web.servlet.request.SecurityMockMvcRequestPostProcessors.jwt;
 
 import java.math.BigDecimal;
 import java.time.Duration;
@@ -19,6 +20,7 @@ import org.springframework.jdbc.core.JdbcTemplate;
 import org.springframework.kafka.core.ConsumerFactory;
 import org.springframework.kafka.core.KafkaTemplate;
 import org.springframework.test.web.servlet.assertj.MockMvcTester;
+import org.springframework.test.web.servlet.request.RequestPostProcessor;
 
 import br.com.nicole.vitrine.comum.eventos.Evento.EstoqueRecusado;
 import br.com.nicole.vitrine.comum.eventos.Evento.EstoqueReservado;
@@ -53,9 +55,14 @@ class PedidoIntegracaoTest {
         mensageiro = new Mensageiro(kafka, consumidores, leitor);
     }
 
+    /** Token JWT de teste, como o que o Keycloak emitiria para este cliente. */
+    private static RequestPostProcessor cliente(String nome) {
+        return jwt().jwt(j -> j.subject(nome).claim("email", nome + "@exemplo.com"));
+    }
+
     private UUID criarPedido(String cliente) {
         var resposta = http.post().uri("/api/pedidos")
-                .header("X-Cliente-Id", cliente).header("X-Cliente-Email", cliente + "@exemplo.com")
+                .with(cliente(cliente))
                 .contentType(MediaType.APPLICATION_JSON)
                 .content("""
                         {"itens": [{"produtoId": "cafe-especial", "quantidade": 1},
@@ -146,11 +153,9 @@ class PedidoIntegracaoTest {
     void cliente_nao_ve_pedido_de_outro_cliente() {
         UUID id = criarPedido("fabi");
 
-        assertThat(http.get().uri("/api/pedidos/" + id)
-                .header("X-Cliente-Id", "gabi").header("X-Cliente-Email", "gabi@exemplo.com"))
+        assertThat(http.get().uri("/api/pedidos/" + id).with(cliente("gabi")))
                 .hasStatus(HttpStatus.NOT_FOUND);
-        assertThat(http.get().uri("/api/pedidos/" + id)
-                .header("X-Cliente-Id", "fabi").header("X-Cliente-Email", "fabi@exemplo.com"))
+        assertThat(http.get().uri("/api/pedidos/" + id).with(cliente("fabi")))
                 .hasStatusOk();
     }
 
@@ -159,19 +164,28 @@ class PedidoIntegracaoTest {
         long antes = pedidos.count();
 
         assertThat(http.post().uri("/api/pedidos")
-                .header("X-Cliente-Id", "hugo").header("X-Cliente-Email", "hugo@exemplo.com")
+                .with(cliente("hugo"))
                 .contentType(MediaType.APPLICATION_JSON)
                 .content("{\"itens\": [{\"produtoId\": \"cafe-especial\", \"quantidade\": 0}]}"))
                 .hasStatus(HttpStatus.BAD_REQUEST);
         assertThat(http.post().uri("/api/pedidos")
-                .header("X-Cliente-Id", "hugo").header("X-Cliente-Email", "hugo@exemplo.com")
+                .with(cliente("hugo"))
                 .contentType(MediaType.APPLICATION_JSON).content("{\"itens\": []}"))
                 .hasStatus(HttpStatus.BAD_REQUEST);
         assertThat(pedidos.count()).isEqualTo(antes);
     }
 
     @Test
-    void sem_identificacao_do_cliente_responde_401() {
+    void sem_token_responde_401() {
         assertThat(http.get().uri("/api/pedidos")).hasStatus(HttpStatus.UNAUTHORIZED);
+    }
+
+    @Test
+    void token_sem_email_nao_cria_pedido() {
+        assertThat(http.post().uri("/api/pedidos")
+                .with(jwt().jwt(j -> j.subject("sem-email")))
+                .contentType(MediaType.APPLICATION_JSON)
+                .content("{\"itens\": [{\"produtoId\": \"cafe-especial\", \"quantidade\": 1}]}"))
+                .hasStatus(HttpStatus.FORBIDDEN);
     }
 }

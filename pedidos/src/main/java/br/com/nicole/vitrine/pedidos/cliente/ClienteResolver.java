@@ -2,6 +2,8 @@ package br.com.nicole.vitrine.pedidos.cliente;
 
 import org.springframework.core.MethodParameter;
 import org.springframework.http.HttpStatus;
+import org.springframework.security.core.context.SecurityContextHolder;
+import org.springframework.security.oauth2.server.resource.authentication.JwtAuthenticationToken;
 import org.springframework.stereotype.Component;
 import org.springframework.web.bind.support.WebDataBinderFactory;
 import org.springframework.web.context.request.NativeWebRequest;
@@ -10,9 +12,9 @@ import org.springframework.web.method.support.ModelAndViewContainer;
 import org.springframework.web.server.ResponseStatusException;
 
 /**
- * Descobre o cliente da requisicao. Fase 1: cabecalhos X-Cliente-Id e
- * X-Cliente-Email, so para os testes do fluxo de eventos. Na fase de seguranca,
- * passa a ler o token JWT validado (claims "sub" e "email").
+ * Tira o cliente do token JWT ja validado: "sub" e o id que o Keycloak deu ao
+ * usuario, "email" vai para o aviso do pedido. Nada vem de cabecalho ou corpo
+ * que o proprio cliente possa escrever.
  */
 @Component
 public class ClienteResolver implements HandlerMethodArgumentResolver {
@@ -25,11 +27,14 @@ public class ClienteResolver implements HandlerMethodArgumentResolver {
     @Override
     public Cliente resolveArgument(
             MethodParameter parametro, ModelAndViewContainer mav, NativeWebRequest requisicao, WebDataBinderFactory f) {
-        String id = requisicao.getHeader("X-Cliente-Id");
-        String email = requisicao.getHeader("X-Cliente-Email");
-        if (id == null || id.isBlank() || email == null || email.isBlank()) {
+        if (!(SecurityContextHolder.getContext().getAuthentication() instanceof JwtAuthenticationToken token)) {
             throw new ResponseStatusException(HttpStatus.UNAUTHORIZED, "Cliente não identificado");
         }
-        return new Cliente(id, email);
+        String email = token.getToken().getClaimAsString("email");
+        if (email == null || email.isBlank()) {
+            // Sem e-mail no token nao ha como avisar o cliente sobre o pedido.
+            throw new ResponseStatusException(HttpStatus.FORBIDDEN, "O token não traz o e-mail do cliente");
+        }
+        return new Cliente(token.getToken().getSubject(), email);
     }
 }

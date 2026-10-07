@@ -1,0 +1,47 @@
+spring:
+  application:
+    name: gateway
+  cloud:
+    gateway:
+      server:
+        webmvc:
+          routes:
+            - id: produtos
+              uri: ${ESTOQUE_URL:http://localhost:8082}
+              predicates:
+                - Path=/api/produtos/**
+            - id: pedidos
+              uri: ${PEDIDOS_URL:http://localhost:8081}
+              predicates:
+                - Path=/api/pedidos/**
+  security:
+    oauth2:
+      resourceserver:
+        jwt:
+          # O "iss" dos tokens e o endereco publico do Keycloak (o do
+          # navegador). As chaves sao buscadas pelo endereco interno, na rede
+          # do compose ou do cluster. Com jwk-set-uri, o Spring nao tenta o
+          # endereco publico de dentro do container: so confere o "iss".
+          issuer-uri: ${KEYCLOAK_EMISSOR:http://localhost:8180/realms/vitrine}
+          jwk-set-uri: ${KEYCLOAK_CHAVES:http://localhost:8180/realms/vitrine/protocol/openid-connect/certs}
+          # O token precisa ter sido emitido para esta API. Um token valido do
+          # mesmo Keycloak, mas para outro sistema, e recusado.
+          audiences: vitrine-api
+
+vitrine:
+  cors:
+    origens: ${CORS_ORIGENS:http://localhost:5173}
+
+server:
+  port: 8080
+  shutdown: graceful
+
+management:
+  endpoints:
+    web:
+      exposure:
+        include: health,prometheus
+  endpoint:
+    health:
+      probes:
+        enabled: true
