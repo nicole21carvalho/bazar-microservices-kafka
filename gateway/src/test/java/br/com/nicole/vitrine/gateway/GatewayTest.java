@@ -170,4 +170,30 @@ class GatewayTest {
                 HttpResponse.BodyHandlers.ofString());
         assertThat(gerencia.statusCode()).isEqualTo(200);
     }
+
+    @Test
+    void cors_libera_so_o_endereco_do_painel() throws Exception {
+        var painel = http.send(HttpRequest.newBuilder(URI.create("http://localhost:" + porta + "/api/produtos"))
+                .header("Origin", "http://localhost:5173").build(), HttpResponse.BodyHandlers.ofString());
+        var outroSite = http.send(HttpRequest.newBuilder(URI.create("http://localhost:" + porta + "/api/produtos"))
+                .header("Origin", "https://site-malicioso.example").build(), HttpResponse.BodyHandlers.ofString());
+
+        assertThat(painel.headers().firstValue("Access-Control-Allow-Origin")).hasValue("http://localhost:5173");
+        // Outra origem: o navegador nao recebe permissao para ler a resposta.
+        assertThat(outroSite.headers().firstValue("Access-Control-Allow-Origin")).isEmpty();
+    }
+
+    @Test
+    void preflight_do_navegador_libera_o_cabecalho_authorization() throws Exception {
+        var resposta = http.send(HttpRequest.newBuilder(URI.create("http://localhost:" + porta + "/api/pedidos"))
+                .method("OPTIONS", HttpRequest.BodyPublishers.noBody())
+                .header("Origin", "http://localhost:5173")
+                .header("Access-Control-Request-Method", "POST")
+                .header("Access-Control-Request-Headers", "authorization,content-type")
+                .build(), HttpResponse.BodyHandlers.ofString());
+
+        assertThat(resposta.statusCode()).isEqualTo(200);
+        assertThat(resposta.headers().firstValue("Access-Control-Allow-Headers").orElse("").toLowerCase())
+                .contains("authorization");
+    }
 }

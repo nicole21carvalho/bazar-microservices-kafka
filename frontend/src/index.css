@@ -1,0 +1,29 @@
+@import "tailwindcss";
+
+/* Paleta em tokens: as cores mudam aqui, e nao componente por componente. */
+@theme {
+  --color-fundo: #faf8f5;
+  --color-painel: #ffffff;
+  --color-borda: #e7e2da;
+  --color-texto: #1f1b16;
+  --color-suave: #6b6359;
+  --color-destaque: #b45309;
+  --color-destaque-forte: #92400e;
+  --color-sucesso: #15803d;
+  --color-alerta: #b45309;
+  --color-perigo: #b91c1c;
+
+  --font-sans: "Inter", ui-sans-serif, system-ui, -apple-system, "Segoe UI", sans-serif;
+}
+
+body {
+  background: var(--color-fundo);
+  color: var(--color-texto);
+}
+
+@media (prefers-reduced-motion: reduce) {
+  * {
+    animation: none !important;
+    transition: none !important;
+  }
+}

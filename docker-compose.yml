@@ -186,6 +186,24 @@ services:
       estoque:
         condition: service_healthy
 
+  # Painel da loja (React). http://localhost:5173
+  web:
+    <<: *seguro
+    build:
+      context: ./frontend
+      args:
+        API_URL: http://localhost:8080
+        KEYCLOAK_ORIGEM: http://localhost:8180
+    read_only: true
+    tmpfs:
+      - /tmp:size=16m
+    mem_limit: 64m
+    ports:
+      # A porta que o Keycloak aceita como destino do login (redirectUris).
+      - "127.0.0.1:5173:8080"
+    depends_on:
+      - gateway
+
   # --- Observabilidade ---------------------------------------------------
   # Jaeger: recebe os traces por OTLP e mostra cada pedido atravessando os
   # servicos e o Kafka. http://localhost:16686

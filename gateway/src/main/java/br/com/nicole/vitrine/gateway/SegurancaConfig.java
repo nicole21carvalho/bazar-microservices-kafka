@@ -52,8 +52,11 @@ public class SegurancaConfig {
                 .build();
     }
 
+    // O nome do metodo importa: o .cors() do Spring Security procura o bean
+    // chamado "corsConfigurationSource". Com outro nome ele nao acha e segue
+    // sem CORS nenhum, e o navegador bloqueia todas as respostas do painel.
     @Bean
-    CorsConfigurationSource cors(@Value("${vitrine.cors.origens}") List<String> origens) {
+    CorsConfigurationSource corsConfigurationSource(@Value("${vitrine.cors.origens}") List<String> origens) {
         var config = new CorsConfiguration();
         // Origens explicitas, nunca "*".
         config.setAllowedOrigins(origens);
