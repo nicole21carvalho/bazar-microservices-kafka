@@ -43,6 +43,10 @@ services:
       DB_SENHA_PAGAMENTOS: ${DB_SENHA_PAGAMENTOS:?defina no .env}
       DB_SENHA_NOTIFICACOES: ${DB_SENHA_NOTIFICACOES:?defina no .env}
       DB_SENHA_KEYCLOAK: ${DB_SENHA_KEYCLOAK:?defina no .env}
+      # Na primeira subida, o entrypoint cria os bancos num servidor
+      # temporario e o desliga com pg_ctl, que desiste em 60 s. Com a maquina
+      # carregada isso ja falhou e derrubou o container; 5 minutos de folga.
+      PGCTLTIMEOUT: "300"
     volumes:
       # No Postgres 18 o volume vai em /var/lib/postgresql, e nao em .../data.
       - dados_postgres:/var/lib/postgresql
@@ -51,7 +55,11 @@ services:
       test: ["CMD-SHELL", "pg_isready -U postgres"]
       interval: 5s
       timeout: 3s
-      retries: 10
+      retries: 20
+      # Na primeira subida o Postgres cria os 5 bancos antes de aceitar
+      # conexao; numa maquina ocupada (build das imagens rodando junto), isso
+      # passa de 1 minuto e as falhas desse periodo nao contam.
+      start_period: 90s
 
   kafka:
     image: apache/kafka:4.3.1
@@ -128,7 +136,9 @@ services:
       - ./infra/keycloak/vitrine-realm.json:/opt/keycloak/data/import/vitrine-realm.json:ro
     ports:
       - "127.0.0.1:8180:8080"
-    mem_limit: 768m
+    # Com 768 MB ele ficava em ~85% de uso e a coleta de lixo deixava o
+    # login lento (requisicao de token passando de 5 s).
+    mem_limit: 1024m
     healthcheck:
       # A imagem nao tem curl: a checagem fala HTTP direto pelo /dev/tcp do bash.
       # Aspas simples no YAML: as barras chegam intactas ao printf, que as interpreta.
