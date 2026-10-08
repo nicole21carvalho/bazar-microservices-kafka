@@ -5,8 +5,8 @@
     <modelVersion>4.0.0</modelVersion>
 
     <parent>
-        <groupId>br.com.nicole.sagaz</groupId>
-        <artifactId>sagaz</artifactId>
+        <groupId>br.com.nicole.bazar</groupId>
+        <artifactId>bazar</artifactId>
         <version>0.1.0</version>
     </parent>
 
@@ -15,7 +15,7 @@
 
     <dependencies>
         <dependency>
-            <groupId>br.com.nicole.sagaz</groupId>
+            <groupId>br.com.nicole.bazar</groupId>
             <artifactId>comum</artifactId>
         </dependency>
         <dependency>
@@ -57,7 +57,7 @@
         </dependency>
 
         <dependency>
-            <groupId>br.com.nicole.sagaz</groupId>
+            <groupId>br.com.nicole.bazar</groupId>
             <artifactId>comum</artifactId>
             <type>test-jar</type>
             <scope>test</scope>

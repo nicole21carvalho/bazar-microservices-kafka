@@ -1,6 +1,6 @@
 # syntax=docker/dockerfile:1
 # Um Dockerfile para os cinco servicos: SERVICO escolhe qual imagem gerar.
-#   docker build --build-arg SERVICO=pedidos -t sagaz-pedidos .
+#   docker build --build-arg SERVICO=pedidos -t bazar-pedidos .
 
 # --platform=$BUILDPLATFORM: a compilacao roda na arquitetura de quem esta
 # construindo, sempre nativa. Bytecode Java e o mesmo em x86 e ARM, entao so a

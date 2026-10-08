@@ -42,7 +42,7 @@ variable "ip_administracao" {
 variable "repositorio" {
   description = "Repositorio Git publico que o Flux acompanha (a pasta infra/ dele vira o cluster)."
   type        = string
-  default     = "https://github.com/nicole21carvalho/sagaz-microservices-kafka"
+  default     = "https://github.com/nicole21carvalho/bazar-microservices-kafka"
 }
 
 variable "ramo" {

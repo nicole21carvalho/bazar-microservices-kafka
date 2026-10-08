@@ -16,36 +16,36 @@ data "oci_core_images" "ubuntu" {
 
 # --- Rede ---
 
-resource "oci_core_vcn" "sagaz" {
+resource "oci_core_vcn" "bazar" {
   compartment_id = var.compartimento_ocid
-  display_name   = "sagaz"
+  display_name   = "bazar"
   cidr_blocks    = ["10.0.0.0/16"]
-  dns_label      = "sagaz"
+  dns_label      = "bazar"
 }
 
-resource "oci_core_internet_gateway" "sagaz" {
+resource "oci_core_internet_gateway" "bazar" {
   compartment_id = var.compartimento_ocid
-  vcn_id         = oci_core_vcn.sagaz.id
-  display_name   = "sagaz"
+  vcn_id         = oci_core_vcn.bazar.id
+  display_name   = "bazar"
   enabled        = true
 }
 
-resource "oci_core_route_table" "sagaz" {
+resource "oci_core_route_table" "bazar" {
   compartment_id = var.compartimento_ocid
-  vcn_id         = oci_core_vcn.sagaz.id
-  display_name   = "sagaz"
+  vcn_id         = oci_core_vcn.bazar.id
+  display_name   = "bazar"
 
   route_rules {
     destination       = "0.0.0.0/0"
     destination_type  = "CIDR_BLOCK"
-    network_entity_id = oci_core_internet_gateway.sagaz.id
+    network_entity_id = oci_core_internet_gateway.bazar.id
   }
 }
 
-resource "oci_core_security_list" "sagaz" {
+resource "oci_core_security_list" "bazar" {
   compartment_id = var.compartimento_ocid
-  vcn_id         = oci_core_vcn.sagaz.id
-  display_name   = "sagaz"
+  vcn_id         = oci_core_vcn.bazar.id
+  display_name   = "bazar"
 
   egress_security_rules {
     destination = "0.0.0.0/0"
@@ -89,20 +89,20 @@ resource "oci_core_security_list" "sagaz" {
 
 resource "oci_core_subnet" "publica" {
   compartment_id    = var.compartimento_ocid
-  vcn_id            = oci_core_vcn.sagaz.id
-  display_name      = "sagaz-publica"
+  vcn_id            = oci_core_vcn.bazar.id
+  display_name      = "bazar-publica"
   cidr_block        = "10.0.1.0/24"
   dns_label         = "publica"
-  route_table_id    = oci_core_route_table.sagaz.id
-  security_list_ids = [oci_core_security_list.sagaz.id]
+  route_table_id    = oci_core_route_table.bazar.id
+  security_list_ids = [oci_core_security_list.bazar.id]
 }
 
 # --- Maquina ---
 
-resource "oci_core_instance" "sagaz" {
+resource "oci_core_instance" "bazar" {
   compartment_id      = var.compartimento_ocid
   availability_domain = data.oci_identity_availability_domains.todos.availability_domains[var.indice_dominio_disponibilidade].name
-  display_name        = "sagaz"
+  display_name        = "bazar"
   shape               = "VM.Standard.A1.Flex"
 
   shape_config {
@@ -119,7 +119,7 @@ resource "oci_core_instance" "sagaz" {
   create_vnic_details {
     subnet_id        = oci_core_subnet.publica.id
     assign_public_ip = true
-    hostname_label   = "sagaz"
+    hostname_label   = "bazar"
   }
 
   # So a versao 2 do servico de metadados (com sessao): dificulta que uma

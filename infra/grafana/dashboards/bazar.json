@@ -1,0 +1,97 @@
+{
+  "uid": "bazar",
+  "title": "Bazar · saga de pedidos",
+  "tags": ["bazar"],
+  "timezone": "browser",
+  "refresh": "10s",
+  "time": { "from": "now-1h", "to": "now" },
+  "schemaVersion": 39,
+  "panels": [
+    {
+      "id": 1, "type": "stat", "title": "Pedidos confirmados (1h)",
+      "gridPos": { "x": 0, "y": 0, "w": 5, "h": 4 },
+      "datasource": { "type": "prometheus", "uid": "prometheus" },
+      "targets": [{ "expr": "sum(increase(bazar_saga_duracao_seconds_count{status=\"CONFIRMADO\"}[1h])) or vector(0)" }],
+      "options": { "reduceOptions": { "calcs": ["lastNotNull"] }, "colorMode": "value" },
+      "fieldConfig": { "defaults": { "decimals": 0, "color": { "mode": "fixed", "fixedColor": "green" } } }
+    },
+    {
+      "id": 2, "type": "stat", "title": "Pedidos cancelados (1h)",
+      "description": "Sem estoque ou pagamento recusado. Os itens voltam ao estoque (compensação).",
+      "gridPos": { "x": 5, "y": 0, "w": 5, "h": 4 },
+      "datasource": { "type": "prometheus", "uid": "prometheus" },
+      "targets": [{ "expr": "sum(increase(bazar_saga_duracao_seconds_count{status=\"CANCELADO\"}[1h])) or vector(0)" }],
+      "options": { "reduceOptions": { "calcs": ["lastNotNull"] }, "colorMode": "value" },
+      "fieldConfig": { "defaults": { "decimals": 0, "color": { "mode": "fixed", "fixedColor": "orange" } } }
+    },
+    {
+      "id": 3, "type": "stat", "title": "Tempo da saga (p95)",
+      "description": "Do pedido criado até confirmado ou cancelado, somando estoque, pagamento e Kafka.",
+      "gridPos": { "x": 10, "y": 0, "w": 5, "h": 4 },
+      "datasource": { "type": "prometheus", "uid": "prometheus" },
+      "targets": [{ "expr": "histogram_quantile(0.95, sum by (le) (rate(bazar_saga_duracao_seconds_bucket[15m])))" }],
+      "options": { "reduceOptions": { "calcs": ["lastNotNull"] }, "colorMode": "value" },
+      "fieldConfig": { "defaults": { "unit": "s", "decimals": 2,
+        "thresholds": { "mode": "absolute", "steps": [
+          { "color": "green", "value": null }, { "color": "yellow", "value": 10 }, { "color": "red", "value": 30 } ] } } }
+    },
+    {
+      "id": 4, "type": "stat", "title": "Eventos parados no outbox",
+      "description": "Gravados no banco e ainda não publicados. Crescendo sem parar: Kafka fora do ar.",
+      "gridPos": { "x": 15, "y": 0, "w": 5, "h": 4 },
+      "datasource": { "type": "prometheus", "uid": "prometheus" },
+      "targets": [{ "expr": "sum(bazar_outbox_pendentes) or vector(0)" }],
+      "options": { "reduceOptions": { "calcs": ["lastNotNull"] }, "colorMode": "value" },
+      "fieldConfig": { "defaults": { "decimals": 0,
+        "thresholds": { "mode": "absolute", "steps": [
+          { "color": "green", "value": null }, { "color": "red", "value": 50 } ] } } }
+    },
+    {
+      "id": 5, "type": "stat", "title": "Mensagens no DLT (1h)",
+      "gridPos": { "x": 20, "y": 0, "w": 4, "h": 4 },
+      "datasource": { "type": "prometheus", "uid": "prometheus" },
+      "targets": [{ "expr": "sum(increase(bazar_mensagens_dlt_total[1h])) or vector(0)" }],
+      "options": { "reduceOptions": { "calcs": ["lastNotNull"] }, "colorMode": "value" },
+      "fieldConfig": { "defaults": { "decimals": 0,
+        "thresholds": { "mode": "absolute", "steps": [
+          { "color": "green", "value": null }, { "color": "red", "value": 1 } ] } } }
+    },
+    {
+      "id": 6, "type": "timeseries", "title": "Tempo da saga por desfecho (p50 e p95)",
+      "gridPos": { "x": 0, "y": 4, "w": 12, "h": 8 },
+      "datasource": { "type": "prometheus", "uid": "prometheus" },
+      "targets": [
+        { "expr": "histogram_quantile(0.50, sum by (le, status) (rate(bazar_saga_duracao_seconds_bucket[5m])))", "legendFormat": "p50 {{status}}" },
+        { "expr": "histogram_quantile(0.95, sum by (le, status) (rate(bazar_saga_duracao_seconds_bucket[5m])))", "legendFormat": "p95 {{status}}" }
+      ],
+      "fieldConfig": { "defaults": { "unit": "s" } }
+    },
+    {
+      "id": 7, "type": "timeseries", "title": "Requisições no gateway, por rota e status",
+      "gridPos": { "x": 12, "y": 4, "w": 12, "h": 8 },
+      "datasource": { "type": "prometheus", "uid": "prometheus" },
+      "targets": [
+        { "expr": "sum by (uri, status) (rate(http_server_requests_seconds_count{servico=\"gateway\"}[1m]))", "legendFormat": "{{uri}} {{status}}" }
+      ],
+      "fieldConfig": { "defaults": { "unit": "reqps" } }
+    },
+    {
+      "id": 8, "type": "timeseries", "title": "Atraso dos consumidores no Kafka (mensagens)",
+      "description": "Mensagens esperando no tópico sem serem lidas, por serviço.",
+      "gridPos": { "x": 0, "y": 12, "w": 12, "h": 8 },
+      "datasource": { "type": "prometheus", "uid": "prometheus" },
+      "targets": [
+        { "expr": "max by (servico) (kafka_consumer_fetch_manager_records_lag_max)", "legendFormat": "{{servico}}" }
+      ]
+    },
+    {
+      "id": 9, "type": "timeseries", "title": "Memória da JVM (heap), por serviço",
+      "gridPos": { "x": 12, "y": 12, "w": 12, "h": 8 },
+      "datasource": { "type": "prometheus", "uid": "prometheus" },
+      "targets": [
+        { "expr": "sum by (servico) (jvm_memory_used_bytes{area=\"heap\"})", "legendFormat": "{{servico}}" }
+      ],
+      "fieldConfig": { "defaults": { "unit": "bytes" } }
+    }
+  ]
+}

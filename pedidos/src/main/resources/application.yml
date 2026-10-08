@@ -25,9 +25,9 @@ spring:
           # Mesmo emissor e mesma audiencia que o gateway confere. O pedidos
           # valida o token de novo: se alguem chegar nele sem passar pelo
           # gateway (rede interna comprometida), continua barrado.
-          issuer-uri: ${KEYCLOAK_EMISSOR:http://localhost:8180/realms/sagaz}
-          jwk-set-uri: ${KEYCLOAK_CHAVES:http://localhost:8180/realms/sagaz/protocol/openid-connect/certs}
-          audiences: sagaz-api
+          issuer-uri: ${KEYCLOAK_EMISSOR:http://localhost:8180/realms/bazar}
+          jwk-set-uri: ${KEYCLOAK_CHAVES:http://localhost:8180/realms/bazar/protocol/openid-connect/certs}
+          audiences: bazar-api
   kafka:
     bootstrap-servers: ${KAFKA_SERVIDORES:localhost:9092}
     consumer:

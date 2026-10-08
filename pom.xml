@@ -11,11 +11,11 @@
         <relativePath/>
     </parent>
 
-    <groupId>br.com.nicole.sagaz</groupId>
-    <artifactId>sagaz</artifactId>
+    <groupId>br.com.nicole.bazar</groupId>
+    <artifactId>bazar</artifactId>
     <version>0.1.0</version>
     <packaging>pom</packaging>
-    <name>sagaz</name>
+    <name>bazar</name>
     <description>Loja online em microsservicos que conversam por eventos no Kafka</description>
 
     <!-- Um repositorio, varios servicos: cada modulo gera a sua imagem e
@@ -62,12 +62,12 @@
                 <version>1.11.4</version>
             </dependency>
             <dependency>
-                <groupId>br.com.nicole.sagaz</groupId>
+                <groupId>br.com.nicole.bazar</groupId>
                 <artifactId>comum</artifactId>
                 <version>${project.version}</version>
             </dependency>
             <dependency>
-                <groupId>br.com.nicole.sagaz</groupId>
+                <groupId>br.com.nicole.bazar</groupId>
                 <artifactId>comum</artifactId>
                 <version>${project.version}</version>
                 <type>test-jar</type>

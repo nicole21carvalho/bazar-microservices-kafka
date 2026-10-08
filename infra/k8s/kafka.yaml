@@ -93,7 +93,7 @@ spec:
     metadata:
       labels:
         app: kafka-topicos
-        sagaz/acessa-kafka: "true"
+        bazar/acessa-kafka: "true"
     spec:
       restartPolicy: OnFailure
       securityContext:
@@ -112,7 +112,7 @@ spec:
                   --create --if-not-exists --topic "$1" --partitions 3 --replication-factor 1 \
                   --config retention.ms="$2"
               }
-              for t in sagaz.pedidos sagaz.estoque sagaz.pagamentos; do
+              for t in bazar.pedidos bazar.estoque bazar.pagamentos; do
                 criar "$t" 604800000 && criar "$t-dlt" 2592000000 || exit 1
               done
           resources:

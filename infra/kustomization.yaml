@@ -1,8 +1,8 @@
-# Sagaz no Kubernetes (k3s na Oracle Cloud, ou qualquer cluster).
+# Bazar no Kubernetes (k3s na Oracle Cloud, ou qualquer cluster).
 # Na nuvem, quem aplica este arquivo e o Flux (veja infra/README.md). Em
 # outro cluster:
-#   1. crie o namespace sagaz e o Secret sagaz-segredos (infra/README.md)
-#   2. troque sagaz.example.com pelo seu dominio, aqui embaixo
+#   1. crie o namespace bazar e o Secret bazar-segredos (infra/README.md)
+#   2. troque bazar.example.com pelo seu dominio, aqui embaixo
 #   3. kubectl apply -k infra/
 #
 # A raiz fica em infra/, e nao em infra/k8s/, porque os ConfigMaps saem dos
@@ -10,11 +10,11 @@
 # Postgres): uma fonte so, sem copia para desatualizar.
 apiVersion: kustomize.config.k8s.io/v1beta1
 kind: Kustomization
-namespace: sagaz
+namespace: bazar
 
 labels:
   - pairs:
-      app.kubernetes.io/part-of: sagaz
+      app.kubernetes.io/part-of: bazar
     includeSelectors: false
 
 resources:
@@ -29,13 +29,13 @@ resources:
   - k8s/network-policies.yaml
 
 configMapGenerator:
-  - name: sagaz-endereco
+  - name: bazar-endereco
     literals:
-      - DOMINIO=sagaz.example.com
-      - URL_PUBLICA=https://sagaz.example.com
+      - DOMINIO=bazar.example.com
+      - URL_PUBLICA=https://bazar.example.com
   - name: keycloak-realm
     files:
-      - keycloak/sagaz-realm.json
+      - keycloak/bazar-realm.json
   - name: postgres-init
     files:
       - postgres/criar-bancos.sh
@@ -60,12 +60,12 @@ patches:
 replacements:
   - source:
       kind: ConfigMap
-      name: sagaz-endereco
+      name: bazar-endereco
       fieldPath: data.DOMINIO
     targets:
       - select:
           kind: Ingress
-          name: sagaz
+          name: bazar
         fieldPaths:
           - spec.rules.0.host
           - spec.tls.0.hosts.0
@@ -73,21 +73,21 @@ replacements:
 # As imagens sao publicadas pelo CI no GitHub Container Registry, em x86 e ARM,
 # assinadas com cosign. O job de deploy do CI troca a tag pelo SHA do commit.
 images:
-  - name: sagaz-gateway
-    newName: ghcr.io/nicole21carvalho/sagaz-gateway
+  - name: bazar-gateway
+    newName: ghcr.io/nicole21carvalho/bazar-gateway
     newTag: latest
-  - name: sagaz-pedidos
-    newName: ghcr.io/nicole21carvalho/sagaz-pedidos
+  - name: bazar-pedidos
+    newName: ghcr.io/nicole21carvalho/bazar-pedidos
     newTag: latest
-  - name: sagaz-estoque
-    newName: ghcr.io/nicole21carvalho/sagaz-estoque
+  - name: bazar-estoque
+    newName: ghcr.io/nicole21carvalho/bazar-estoque
     newTag: latest
-  - name: sagaz-pagamentos
-    newName: ghcr.io/nicole21carvalho/sagaz-pagamentos
+  - name: bazar-pagamentos
+    newName: ghcr.io/nicole21carvalho/bazar-pagamentos
     newTag: latest
-  - name: sagaz-notificacoes
-    newName: ghcr.io/nicole21carvalho/sagaz-notificacoes
+  - name: bazar-notificacoes
+    newName: ghcr.io/nicole21carvalho/bazar-notificacoes
     newTag: latest
-  - name: sagaz-web
-    newName: ghcr.io/nicole21carvalho/sagaz-web
+  - name: bazar-web
+    newName: ghcr.io/nicole21carvalho/bazar-web
     newTag: latest

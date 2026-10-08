@@ -1,17 +1,17 @@
 #!/usr/bin/env bash
 # Prepara a VM na primeira inicializacao (o cloud-init roda este script uma vez).
-# Log completo: /var/log/sagaz-preparo.log
+# Log completo: /var/log/bazar-preparo.log
 #
 # Depois daqui, quem faz o deploy e o Flux, de dentro do cluster: ele le a
 # pasta infra/ do repositorio a cada 5 minutos e aplica o que mudou (GitOps).
 # Por isso nenhuma porta de administracao fica aberta para a internet, e o CI
 # nao guarda nenhuma credencial do cluster.
 set -euo pipefail
-exec > >(tee -a /var/log/sagaz-preparo.log) 2>&1
+exec > >(tee -a /var/log/bazar-preparo.log) 2>&1
 
 # Gravado pelo cloud-init: VERSAO_K3S, VERSAO_FLUX, REPOSITORIO, RAMO.
 # shellcheck source=/dev/null
-source /opt/sagaz/config
+source /opt/bazar/config
 
 passo() { echo "== $(date -u +%FT%TZ) $*"; }
 
@@ -47,16 +47,16 @@ passo "cert-manager e emissor do Let's Encrypt"
 # O chart vem da pasta de manifestos do k3s; o emissor so pode ser criado
 # depois que o webhook do cert-manager responde.
 esperar "cert-manager" kubectl -n cert-manager rollout status deploy/cert-manager-webhook --timeout=10s
-esperar "emissor" kubectl apply -f /opt/sagaz/cluster-issuer.yaml
+esperar "emissor" kubectl apply -f /opt/bazar/cluster-issuer.yaml
 
-passo "Segredos da Sagaz"
+passo "Segredos do Bazar"
 # Senhas aleatorias geradas aqui mesmo: nao passam pelo Terraform, pelo CI
 # nem pelo repositorio. Para ler uma delas (por SSH):
-#   sudo kubectl -n sagaz get secret sagaz-segredos -o jsonpath='{.data.KC_SENHA_ADMIN}' | base64 -d
-kubectl create namespace sagaz --dry-run=client -o yaml | kubectl apply -f -
-if ! kubectl -n sagaz get secret sagaz-segredos >/dev/null 2>&1; then
+#   sudo kubectl -n bazar get secret bazar-segredos -o jsonpath='{.data.KC_SENHA_ADMIN}' | base64 -d
+kubectl create namespace bazar --dry-run=client -o yaml | kubectl apply -f -
+if ! kubectl -n bazar get secret bazar-segredos >/dev/null 2>&1; then
     senha() { openssl rand -hex 24; }
-    kubectl -n sagaz create secret generic sagaz-segredos \
+    kubectl -n bazar create secret generic bazar-segredos \
         --from-literal=DB_SENHA_ADMIN="$(senha)" \
         --from-literal=DB_SENHA_PEDIDOS="$(senha)" \
         --from-literal=DB_SENHA_ESTOQUE="$(senha)" \
@@ -73,7 +73,7 @@ kubectl apply -f - <<EOF
 apiVersion: source.toolkit.fluxcd.io/v1
 kind: GitRepository
 metadata:
-  name: sagaz
+  name: bazar
   namespace: flux-system
 spec:
   interval: 5m
@@ -88,13 +88,13 @@ spec:
 apiVersion: kustomize.toolkit.fluxcd.io/v1
 kind: Kustomization
 metadata:
-  name: sagaz
+  name: bazar
   namespace: flux-system
 spec:
   interval: 10m
   sourceRef:
     kind: GitRepository
-    name: sagaz
+    name: bazar
   path: ./infra
   # O que sair do repositorio sai do cluster tambem.
   prune: true

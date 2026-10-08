@@ -81,7 +81,7 @@ def servicos_por_trace(servico="gateway", minutos=15):
 admin = httpx.post(f"{KEYCLOAK}/realms/master/protocol/openid-connect/token", timeout=ESPERA, verify=VERIFICAR, data={
     "grant_type": "password", "client_id": "admin-cli", "username": "admin", "password": ENV["KC_SENHA_ADMIN"],
 }).raise_for_status().json()["access_token"]
-adm = httpx.Client(base_url=f"{KEYCLOAK}/admin/realms/sagaz", timeout=ESPERA, verify=VERIFICAR,
+adm = httpx.Client(base_url=f"{KEYCLOAK}/admin/realms/bazar", timeout=ESPERA, verify=VERIFICAR,
                    headers={"Authorization": f"Bearer {admin}"})
 
 senha = secrets.token_urlsafe(16)
@@ -106,13 +106,13 @@ adm.post("/clients", json={
     "clientId": cliente_id, "secret": segredo, "publicClient": False,
     "directAccessGrantsEnabled": True, "standardFlowEnabled": False,
     "protocolMappers": [{"name": "aud", "protocol": "openid-connect", "protocolMapper": "oidc-audience-mapper",
-                         "config": {"included.custom.audience": "sagaz-api", "access.token.claim": "true"}}],
+                         "config": {"included.custom.audience": "bazar-api", "access.token.claim": "true"}}],
 }).raise_for_status()
 cliente_uuid = adm.get("/clients", params={"clientId": cliente_id}).json()[0]["id"]
 
 
 def pedir_token(usuario):
-    return httpx.post(f"{KEYCLOAK}/realms/sagaz/protocol/openid-connect/token", timeout=ESPERA, verify=VERIFICAR, data={
+    return httpx.post(f"{KEYCLOAK}/realms/bazar/protocol/openid-connect/token", timeout=ESPERA, verify=VERIFICAR, data={
         "grant_type": "password", "client_id": cliente_id, "client_secret": segredo,
         "username": usuario, "password": senha, "scope": "openid email",
     })

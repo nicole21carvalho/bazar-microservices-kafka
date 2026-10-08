@@ -8,14 +8,14 @@ packages:
 
 write_files:
   # SSH so com chave, nunca com senha, e nunca como root.
-  - path: /etc/ssh/sshd_config.d/10-sagaz.conf
+  - path: /etc/ssh/sshd_config.d/10-bazar.conf
     permissions: "0644"
     content: |
       PasswordAuthentication no
       KbdInteractiveAuthentication no
       PermitRootLogin no
   # Atualizacoes de seguranca automaticas, com reinicio de madrugada se preciso.
-  - path: /etc/apt/apt.conf.d/52sagaz-atualizacoes
+  - path: /etc/apt/apt.conf.d/52bazar-atualizacoes
     permissions: "0644"
     content: |
       Unattended-Upgrade::Automatic-Reboot "true";
@@ -27,16 +27,16 @@ write_files:
   - path: /var/lib/rancher/k3s/server/manifests/cert-manager.yaml
     permissions: "0600"
     content: ${jsonencode(cert_manager)}
-  - path: /opt/sagaz/cluster-issuer.yaml
+  - path: /opt/bazar/cluster-issuer.yaml
     permissions: "0600"
     content: ${jsonencode(cluster_issuer)}
-  - path: /opt/sagaz/config
+  - path: /opt/bazar/config
     permissions: "0600"
     content: ${jsonencode(config)}
-  - path: /opt/sagaz/preparar-cluster.sh
+  - path: /opt/bazar/preparar-cluster.sh
     permissions: "0700"
     content: ${jsonencode(preparar_script)}
 
 runcmd:
   - systemctl restart ssh
-  - /opt/sagaz/preparar-cluster.sh
+  - /opt/bazar/preparar-cluster.sh

@@ -46,6 +46,6 @@ management:
       probes:
         enabled: true
 
-sagaz:
+bazar:
   notificacoes:
-    remetente: ${EMAIL_REMETENTE:nao-responda@sagaz.local}
+    remetente: ${EMAIL_REMETENTE:nao-responda@bazar.local}

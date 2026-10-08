@@ -8,17 +8,17 @@
 apiVersion: networking.k8s.io/v1
 kind: Ingress
 metadata:
-  name: sagaz
+  name: bazar
   annotations:
     cert-manager.io/cluster-issuer: letsencrypt
 spec:
   ingressClassName: traefik
   tls:
     - hosts:
-        - sagaz.example.com # trocado pelo kustomization (replacements)
-      secretName: sagaz-tls
+        - bazar.example.com # trocado pelo kustomization (replacements)
+      secretName: bazar-tls
   rules:
-    - host: sagaz.example.com
+    - host: bazar.example.com
       http:
         paths:
           - path: /api
@@ -32,7 +32,7 @@ spec:
           # da internet o console de administracao (/auth/admin) e o realm
           # "master", o dos administradores: os dois so por port-forward,
           # como recomenda a documentacao do Keycloak.
-          - path: /auth/realms/sagaz
+          - path: /auth/realms/bazar
             pathType: Prefix
             backend:
               service:

@@ -1,0 +1,68 @@
+{
+  "realm": "bazar",
+  "displayName": "Bazar",
+  "enabled": true,
+
+  "registrationAllowed": true,
+  "registrationEmailAsUsername": true,
+  "loginWithEmailAllowed": true,
+  "duplicateEmailsAllowed": false,
+  "resetPasswordAllowed": false,
+  "rememberMe": false,
+  "verifyEmail": true,
+
+  "sslRequired": "external",
+  "bruteForceProtected": true,
+  "failureFactor": 5,
+  "waitIncrementSeconds": 60,
+  "maxFailureWaitSeconds": 900,
+  "passwordPolicy": "length(10) and maxLength(128) and notUsername and notEmail",
+
+  "smtpServer": {
+    "host": "mailpit",
+    "port": "1025",
+    "from": "nao-responda@bazar.local",
+    "fromDisplayName": "Bazar"
+  },
+
+  "accessTokenLifespan": 300,
+  "ssoSessionIdleTimeout": 1800,
+  "ssoSessionMaxLifespan": 36000,
+
+  "internationalizationEnabled": true,
+  "supportedLocales": ["pt-BR", "en"],
+  "defaultLocale": "pt-BR",
+
+  "clients": [
+    {
+      "clientId": "bazar-web",
+      "name": "Bazar (interface web)",
+      "description": "Cliente publico: roda no navegador, entao nao guarda segredo. A seguranca vem do PKCE.",
+      "enabled": true,
+      "publicClient": true,
+      "standardFlowEnabled": true,
+      "implicitFlowEnabled": false,
+      "directAccessGrantsEnabled": false,
+      "serviceAccountsEnabled": false,
+      "redirectUris": ["${BAZAR_URL_PUBLICA:http://localhost:5173}/*"],
+      "webOrigins": ["${BAZAR_URL_PUBLICA:http://localhost:5173}"],
+      "attributes": {
+        "pkce.code.challenge.method": "S256",
+        "post.logout.redirect.uris": "${BAZAR_URL_PUBLICA:http://localhost:5173}/*"
+      },
+      "protocolMappers": [
+        {
+          "name": "audiencia-bazar-api",
+          "protocol": "openid-connect",
+          "protocolMapper": "oidc-audience-mapper",
+          "config": {
+            "included.custom.audience": "bazar-api",
+            "access.token.claim": "true",
+            "id.token.claim": "false",
+            "introspection.token.claim": "true"
+          }
+        }
+      ]
+    }
+  ]
+}

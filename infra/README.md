@@ -1,6 +1,6 @@
 # Infraestrutura: da main para a nuvem
 
-A Sagaz roda num **k3s** (Kubernetes leve) numa VM ARM do nível gratuito da
+O Bazar roda num **k3s** (Kubernetes leve) numa VM ARM do nível gratuito da
 **Oracle Cloud**, criada com **Terraform**. O deploy é **GitOps**: o **Flux**,
 de dentro do cluster, lê esta pasta no repositório e aplica o que mudou. O CI
 nunca fala com o cluster, e nenhuma porta de administração fica aberta para a
@@ -30,7 +30,7 @@ Tudo num domínio só, com HTTPS:
 |---|---|
 | `/` | Painel (nginx) |
 | `/api` | Gateway |
-| `/auth/realms/sagaz`, `/auth/resources` | Login (Keycloak) |
+| `/auth/realms/bazar`, `/auth/resources` | Login (Keycloak) |
 
 O console de administração do Keycloak, o realm `master`, o Jaeger e o Mailpit
 **não têm rota**: só abrem por um túnel (veja [Administração](#administração)).
@@ -43,7 +43,7 @@ Pré-requisitos: conta na Oracle Cloud (o nível *Always Free* basta), um domín
 
 1. **Credenciais da Oracle**, fora do repositório: `oci setup config` cria o
    `~/.oci/config` e a chave da API.
-2. **Domínio**: troque `sagaz.example.com` pelo seu em
+2. **Domínio**: troque `bazar.example.com` pelo seu em
    [`kustomization.yaml`](kustomization.yaml) (`DOMINIO` e `URL_PUBLICA`) e faça
    commit.
 3. **Imagens públicas**: depois do primeiro push na main, o CI publica as 6
@@ -64,7 +64,7 @@ Pré-requisitos: conta na Oracle Cloud (o nível *Always Free* basta), um domín
 
 A primeira subida leva uns 15 minutos (cloud-init, k3s, cert-manager, Flux e as
 aplicações). Para acompanhar: `ssh ubuntu@IP` e
-`sudo tail -f /var/log/sagaz-preparo.log`.
+`sudo tail -f /var/log/bazar-preparo.log`.
 
 > Se o `terraform apply` disser *Out of host capacity*, a Oracle está sem
 > máquinas ARM livres naquele domínio de disponibilidade: tente
@@ -82,16 +82,16 @@ ssh -N -L 6443:127.0.0.1:6443 ubuntu@IP
 As telas internas, também por túnel (`sudo kubectl ...` na VM, ou pelo túnel acima):
 
 ```bash
-kubectl -n sagaz port-forward svc/keycloak 8180:8080   # http://localhost:8180/auth/admin
-kubectl -n sagaz port-forward svc/jaeger 16686:16686   # http://localhost:16686
-kubectl -n sagaz port-forward svc/mailpit 8025:8025    # http://localhost:8025
+kubectl -n bazar port-forward svc/keycloak 8180:8080   # http://localhost:8180/auth/admin
+kubectl -n bazar port-forward svc/jaeger 16686:16686   # http://localhost:16686
+kubectl -n bazar port-forward svc/mailpit 8025:8025    # http://localhost:8025
 ```
 
 As senhas foram geradas na própria VM e só existem no cluster. A do admin do
 Keycloak:
 
 ```bash
-sudo kubectl -n sagaz get secret sagaz-segredos -o jsonpath='{.data.KC_SENHA_ADMIN}' | base64 -d
+sudo kubectl -n bazar get secret bazar-segredos -o jsonpath='{.data.KC_SENHA_ADMIN}' | base64 -d
 ```
 
 ## Segurança, camada por camada
@@ -110,8 +110,8 @@ sudo kubectl -n sagaz get secret sagaz-segredos -o jsonpath='{.data.KC_SENHA_ADM
 Para conferir a assinatura de uma imagem publicada:
 
 ```bash
-cosign verify ghcr.io/nicole21carvalho/sagaz-gateway:latest \
-  --certificate-identity-regexp 'https://github.com/nicole21carvalho/sagaz-microservices-kafka/' \
+cosign verify ghcr.io/nicole21carvalho/bazar-gateway:latest \
+  --certificate-identity-regexp 'https://github.com/nicole21carvalho/bazar-microservices-kafka/' \
   --certificate-oidc-issuer https://token.actions.githubusercontent.com
 ```
 

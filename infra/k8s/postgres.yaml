@@ -29,17 +29,17 @@ spec:
             - containerPort: 5432
           env:
             - name: POSTGRES_PASSWORD
-              valueFrom: { secretKeyRef: { name: sagaz-segredos, key: DB_SENHA_ADMIN } }
+              valueFrom: { secretKeyRef: { name: bazar-segredos, key: DB_SENHA_ADMIN } }
             - name: DB_SENHA_PEDIDOS
-              valueFrom: { secretKeyRef: { name: sagaz-segredos, key: DB_SENHA_PEDIDOS } }
+              valueFrom: { secretKeyRef: { name: bazar-segredos, key: DB_SENHA_PEDIDOS } }
             - name: DB_SENHA_ESTOQUE
-              valueFrom: { secretKeyRef: { name: sagaz-segredos, key: DB_SENHA_ESTOQUE } }
+              valueFrom: { secretKeyRef: { name: bazar-segredos, key: DB_SENHA_ESTOQUE } }
             - name: DB_SENHA_PAGAMENTOS
-              valueFrom: { secretKeyRef: { name: sagaz-segredos, key: DB_SENHA_PAGAMENTOS } }
+              valueFrom: { secretKeyRef: { name: bazar-segredos, key: DB_SENHA_PAGAMENTOS } }
             - name: DB_SENHA_NOTIFICACOES
-              valueFrom: { secretKeyRef: { name: sagaz-segredos, key: DB_SENHA_NOTIFICACOES } }
+              valueFrom: { secretKeyRef: { name: bazar-segredos, key: DB_SENHA_NOTIFICACOES } }
             - name: DB_SENHA_KEYCLOAK
-              valueFrom: { secretKeyRef: { name: sagaz-segredos, key: DB_SENHA_KEYCLOAK } }
+              valueFrom: { secretKeyRef: { name: bazar-segredos, key: DB_SENHA_KEYCLOAK } }
             - name: PGCTLTIMEOUT
               value: "300"
           readinessProbe:

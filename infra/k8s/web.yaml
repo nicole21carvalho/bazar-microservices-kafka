@@ -20,7 +20,7 @@ spec:
           type: RuntimeDefault
       containers:
         - name: web
-          image: sagaz-web
+          image: bazar-web
           ports:
             - containerPort: 8080
           readinessProbe:

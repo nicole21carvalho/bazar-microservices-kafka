@@ -16,7 +16,7 @@ spec:
     metadata:
       labels:
         app: gateway
-        sagaz/envia-traces: "true"
+        bazar/envia-traces: "true"
     spec:
       securityContext:
         runAsNonRoot: true
@@ -26,15 +26,15 @@ spec:
           type: RuntimeDefault
       containers:
         - name: gateway
-          image: sagaz-gateway
+          image: bazar-gateway
           ports:
             - containerPort: 8080
             - containerPort: 9000
           env:
             - name: URL_PUBLICA
-              valueFrom: { configMapKeyRef: { name: sagaz-endereco, key: URL_PUBLICA } }
-            - { name: KEYCLOAK_EMISSOR, value: "$(URL_PUBLICA)/auth/realms/sagaz" }
-            - { name: KEYCLOAK_CHAVES, value: "http://keycloak:8080/auth/realms/sagaz/protocol/openid-connect/certs" }
+              valueFrom: { configMapKeyRef: { name: bazar-endereco, key: URL_PUBLICA } }
+            - { name: KEYCLOAK_EMISSOR, value: "$(URL_PUBLICA)/auth/realms/bazar" }
+            - { name: KEYCLOAK_CHAVES, value: "http://keycloak:8080/auth/realms/bazar/protocol/openid-connect/certs" }
             - { name: CORS_ORIGENS, value: "$(URL_PUBLICA)" }
             - { name: ESTOQUE_URL, value: "http://estoque:8082" }
             - { name: PEDIDOS_URL, value: "http://pedidos:8081" }
@@ -92,9 +92,9 @@ spec:
     metadata:
       labels:
         app: pedidos
-        sagaz/acessa-db: "true"
-        sagaz/acessa-kafka: "true"
-        sagaz/envia-traces: "true"
+        bazar/acessa-db: "true"
+        bazar/acessa-kafka: "true"
+        bazar/envia-traces: "true"
     spec:
       securityContext:
         runAsNonRoot: true
@@ -104,20 +104,20 @@ spec:
           type: RuntimeDefault
       containers:
         - name: pedidos
-          image: sagaz-pedidos
+          image: bazar-pedidos
           ports:
             - containerPort: 8081
             - containerPort: 9000
           env:
             - name: URL_PUBLICA
-              valueFrom: { configMapKeyRef: { name: sagaz-endereco, key: URL_PUBLICA } }
-            - { name: KEYCLOAK_EMISSOR, value: "$(URL_PUBLICA)/auth/realms/sagaz" }
-            - { name: KEYCLOAK_CHAVES, value: "http://keycloak:8080/auth/realms/sagaz/protocol/openid-connect/certs" }
+              valueFrom: { configMapKeyRef: { name: bazar-endereco, key: URL_PUBLICA } }
+            - { name: KEYCLOAK_EMISSOR, value: "$(URL_PUBLICA)/auth/realms/bazar" }
+            - { name: KEYCLOAK_CHAVES, value: "http://keycloak:8080/auth/realms/bazar/protocol/openid-connect/certs" }
             - { name: DB_HOST, value: "db" }
             - { name: KAFKA_SERVIDORES, value: "kafka:9092" }
             - { name: OTLP_TRACES, value: "http://jaeger:4318/v1/traces" }
             - name: DB_SENHA_PEDIDOS
-              valueFrom: { secretKeyRef: { name: sagaz-segredos, key: DB_SENHA_PEDIDOS } }
+              valueFrom: { secretKeyRef: { name: bazar-segredos, key: DB_SENHA_PEDIDOS } }
           startupProbe:
             httpGet: { path: /actuator/health/liveness, port: 9000 }
             periodSeconds: 5
@@ -167,9 +167,9 @@ spec:
     metadata:
       labels:
         app: estoque
-        sagaz/acessa-db: "true"
-        sagaz/acessa-kafka: "true"
-        sagaz/envia-traces: "true"
+        bazar/acessa-db: "true"
+        bazar/acessa-kafka: "true"
+        bazar/envia-traces: "true"
     spec:
       securityContext:
         runAsNonRoot: true
@@ -179,7 +179,7 @@ spec:
           type: RuntimeDefault
       containers:
         - name: estoque
-          image: sagaz-estoque
+          image: bazar-estoque
           ports:
             - containerPort: 8082
             - containerPort: 9000
@@ -188,7 +188,7 @@ spec:
             - { name: KAFKA_SERVIDORES, value: "kafka:9092" }
             - { name: OTLP_TRACES, value: "http://jaeger:4318/v1/traces" }
             - name: DB_SENHA_ESTOQUE
-              valueFrom: { secretKeyRef: { name: sagaz-segredos, key: DB_SENHA_ESTOQUE } }
+              valueFrom: { secretKeyRef: { name: bazar-segredos, key: DB_SENHA_ESTOQUE } }
           startupProbe:
             httpGet: { path: /actuator/health/liveness, port: 9000 }
             periodSeconds: 5
@@ -238,9 +238,9 @@ spec:
     metadata:
       labels:
         app: pagamentos
-        sagaz/acessa-db: "true"
-        sagaz/acessa-kafka: "true"
-        sagaz/envia-traces: "true"
+        bazar/acessa-db: "true"
+        bazar/acessa-kafka: "true"
+        bazar/envia-traces: "true"
     spec:
       securityContext:
         runAsNonRoot: true
@@ -250,7 +250,7 @@ spec:
           type: RuntimeDefault
       containers:
         - name: pagamentos
-          image: sagaz-pagamentos
+          image: bazar-pagamentos
           ports:
             - containerPort: 8083
             - containerPort: 9000
@@ -260,7 +260,7 @@ spec:
             - { name: OTLP_TRACES, value: "http://jaeger:4318/v1/traces" }
             - { name: LIMITE_APROVACAO, value: "1000.00" }
             - name: DB_SENHA_PAGAMENTOS
-              valueFrom: { secretKeyRef: { name: sagaz-segredos, key: DB_SENHA_PAGAMENTOS } }
+              valueFrom: { secretKeyRef: { name: bazar-segredos, key: DB_SENHA_PAGAMENTOS } }
           startupProbe:
             httpGet: { path: /actuator/health/liveness, port: 9000 }
             periodSeconds: 5
@@ -300,10 +300,10 @@ spec:
     metadata:
       labels:
         app: notificacoes
-        sagaz/acessa-db: "true"
-        sagaz/acessa-kafka: "true"
-        sagaz/envia-traces: "true"
-        sagaz/envia-email: "true"
+        bazar/acessa-db: "true"
+        bazar/acessa-kafka: "true"
+        bazar/envia-traces: "true"
+        bazar/envia-email: "true"
     spec:
       securityContext:
         runAsNonRoot: true
@@ -313,7 +313,7 @@ spec:
           type: RuntimeDefault
       containers:
         - name: notificacoes
-          image: sagaz-notificacoes
+          image: bazar-notificacoes
           ports:
             - containerPort: 8084
             - containerPort: 9000
@@ -323,7 +323,7 @@ spec:
             - { name: OTLP_TRACES, value: "http://jaeger:4318/v1/traces" }
             - { name: SMTP_HOST, value: "mailpit" }
             - name: DB_SENHA_NOTIFICACOES
-              valueFrom: { secretKeyRef: { name: sagaz-segredos, key: DB_SENHA_NOTIFICACOES } }
+              valueFrom: { secretKeyRef: { name: bazar-segredos, key: DB_SENHA_NOTIFICACOES } }
           startupProbe:
             httpGet: { path: /actuator/health/liveness, port: 9000 }
             periodSeconds: 5

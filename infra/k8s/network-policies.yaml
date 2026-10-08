@@ -12,7 +12,7 @@ spec:
   podSelector: {}
   policyTypes: ["Ingress", "Egress"]
 ---
-# Saida: so para outros pods da Sagaz e para o DNS do cluster. Nenhum pod
+# Saida: so para outros pods do Bazar e para o DNS do cluster. Nenhum pod
 # precisa da internet (as chaves do Keycloak vem pelo endereco interno).
 apiVersion: networking.k8s.io/v1
 kind: NetworkPolicy
@@ -117,7 +117,7 @@ spec:
     - from:
         - podSelector:
             matchLabels:
-              sagaz/acessa-db: "true"
+              bazar/acessa-db: "true"
       ports:
         - port: 5432
 ---
@@ -133,7 +133,7 @@ spec:
     - from:
         - podSelector:
             matchLabels:
-              sagaz/acessa-kafka: "true"
+              bazar/acessa-kafka: "true"
       ports:
         - port: 9092
 ---
@@ -149,7 +149,7 @@ spec:
     - from:
         - podSelector:
             matchLabels:
-              sagaz/envia-traces: "true"
+              bazar/envia-traces: "true"
       ports:
         - port: 4318
 ---
@@ -165,6 +165,6 @@ spec:
     - from:
         - podSelector:
             matchLabels:
-              sagaz/envia-email: "true"
+              bazar/envia-email: "true"
       ports:
         - port: 1025

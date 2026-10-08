@@ -97,7 +97,7 @@ export default function App() {
       <header className="border-b border-borda bg-painel">
         <div className="mx-auto flex max-w-6xl items-center justify-between px-4 py-3">
           <span className="text-xl font-bold tracking-tight">
-            🛍️ Sagaz
+            🛍️ Bazar
           </span>
           <div className="flex items-center gap-4 text-sm">
             {quantidadeTotal(carrinho) > 0 && (
