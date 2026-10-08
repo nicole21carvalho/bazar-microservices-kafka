@@ -1,8 +1,12 @@
 # syntax=docker/dockerfile:1
-# Um Dockerfile para os quatro servicos: SERVICO escolhe qual imagem gerar.
+# Um Dockerfile para os cinco servicos: SERVICO escolhe qual imagem gerar.
 #   docker build --build-arg SERVICO=pedidos -t vitrine-pedidos .
 
-FROM maven:3.9-eclipse-temurin-21 AS build
+# --platform=$BUILDPLATFORM: a compilacao roda na arquitetura de quem esta
+# construindo, sempre nativa. Bytecode Java e o mesmo em x86 e ARM, entao so a
+# etapa final muda por arquitetura, e ela nao executa nada (so COPY): a imagem
+# ARM para a nuvem da Oracle sai sem emular processador, em segundos.
+FROM --platform=$BUILDPLATFORM maven:3.9-eclipse-temurin-21 AS build
 ARG SERVICO
 WORKDIR /app
 # O projeto inteiro, e nao so o servico: o pom pai lista todos os modulos, e o
@@ -18,13 +22,14 @@ RUN java -Djarmode=tools -jar ${SERVICO}/target/${SERVICO}-*.jar extract --layer
 
 FROM eclipse-temurin:21-jre-alpine
 WORKDIR /app
-# Usuario sem privilegio: se alguem escapar da aplicacao, nao e root.
-RUN addgroup -S vitrine && adduser -S vitrine -G vitrine
 COPY --from=build /app/extraido/dependencies/ ./
 COPY --from=build /app/extraido/spring-boot-loader/ ./
 COPY --from=build /app/extraido/snapshot-dependencies/ ./
 COPY --from=build /app/extraido/application/ ./
-USER vitrine
+# Usuario sem privilegio, por numero: se alguem escapar da aplicacao, nao e
+# root. Numerico tambem deixa o Kubernetes conferir "runAsNonRoot" sem
+# precisar abrir a imagem.
+USER 1001:1001
 # 75% da memoria do container para o heap: o limite vem do compose ou do
 # Kubernetes, e a JVM se ajusta a ele em vez de supor a memoria da maquina.
 ENTRYPOINT ["java", "-XX:MaxRAMPercentage=75", "org.springframework.boot.loader.launch.JarLauncher"]

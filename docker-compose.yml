@@ -192,8 +192,9 @@ services:
     build:
       context: ./frontend
       args:
+        # Local, cada um na sua porta. Na nuvem ficam vazios: tudo no mesmo dominio.
         API_URL: http://localhost:8080
-        KEYCLOAK_ORIGEM: http://localhost:8180
+        KEYCLOAK_URL: http://localhost:8180/realms/vitrine
     read_only: true
     tmpfs:
       - /tmp:size=16m

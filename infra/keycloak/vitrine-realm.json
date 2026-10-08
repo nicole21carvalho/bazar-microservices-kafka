@@ -44,11 +44,11 @@
       "implicitFlowEnabled": false,
       "directAccessGrantsEnabled": false,
       "serviceAccountsEnabled": false,
-      "redirectUris": ["http://localhost:5173/*"],
-      "webOrigins": ["http://localhost:5173"],
+      "redirectUris": ["${VITRINE_URL_PUBLICA:http://localhost:5173}/*"],
+      "webOrigins": ["${VITRINE_URL_PUBLICA:http://localhost:5173}"],
       "attributes": {
         "pkce.code.challenge.method": "S256",
-        "post.logout.redirect.uris": "http://localhost:5173/*"
+        "post.logout.redirect.uris": "${VITRINE_URL_PUBLICA:http://localhost:5173}/*"
       },
       "protocolMappers": [
         {

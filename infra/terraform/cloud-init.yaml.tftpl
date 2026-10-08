@@ -1,0 +1,42 @@
+#cloud-config
+# Roda so na criacao da VM. Os arquivos vem de infra/terraform/k3s/ (jsonencode
+# vira uma string YAML valida, sem problema de indentacao).
+package_update: true
+package_upgrade: true
+packages:
+  - unattended-upgrades
+
+write_files:
+  # SSH so com chave, nunca com senha, e nunca como root.
+  - path: /etc/ssh/sshd_config.d/10-vitrine.conf
+    permissions: "0644"
+    content: |
+      PasswordAuthentication no
+      KbdInteractiveAuthentication no
+      PermitRootLogin no
+  # Atualizacoes de seguranca automaticas, com reinicio de madrugada se preciso.
+  - path: /etc/apt/apt.conf.d/52vitrine-atualizacoes
+    permissions: "0644"
+    content: |
+      Unattended-Upgrade::Automatic-Reboot "true";
+      Unattended-Upgrade::Automatic-Reboot-Time "04:00";
+  # A pasta de manifestos do k3s: ele aplica sozinho o que estiver aqui.
+  - path: /var/lib/rancher/k3s/server/manifests/traefik-config.yaml
+    permissions: "0600"
+    content: ${jsonencode(traefik)}
+  - path: /var/lib/rancher/k3s/server/manifests/cert-manager.yaml
+    permissions: "0600"
+    content: ${jsonencode(cert_manager)}
+  - path: /opt/vitrine/cluster-issuer.yaml
+    permissions: "0600"
+    content: ${jsonencode(cluster_issuer)}
+  - path: /opt/vitrine/config
+    permissions: "0600"
+    content: ${jsonencode(config)}
+  - path: /opt/vitrine/preparar-cluster.sh
+    permissions: "0700"
+    content: ${jsonencode(preparar_script)}
+
+runcmd:
+  - systemctl restart ssh
+  - /opt/vitrine/preparar-cluster.sh

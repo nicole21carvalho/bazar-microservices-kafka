@@ -1,0 +1,97 @@
+# Um Postgres com um banco e um usuario por servico (o mesmo script do
+# compose). StatefulSet: o disco continua o mesmo quando o pod reinicia.
+apiVersion: apps/v1
+kind: StatefulSet
+metadata:
+  name: db
+spec:
+  serviceName: db
+  replicas: 1
+  selector:
+    matchLabels:
+      app: db
+  template:
+    metadata:
+      labels:
+        app: db
+    spec:
+      securityContext:
+        runAsNonRoot: true
+        runAsUser: 70 # usuario "postgres" da imagem alpine
+        runAsGroup: 70
+        fsGroup: 70
+        seccompProfile:
+          type: RuntimeDefault
+      containers:
+        - name: postgres
+          image: postgres:18-alpine
+          ports:
+            - containerPort: 5432
+          env:
+            - name: POSTGRES_PASSWORD
+              valueFrom: { secretKeyRef: { name: vitrine-segredos, key: DB_SENHA_ADMIN } }
+            - name: DB_SENHA_PEDIDOS
+              valueFrom: { secretKeyRef: { name: vitrine-segredos, key: DB_SENHA_PEDIDOS } }
+            - name: DB_SENHA_ESTOQUE
+              valueFrom: { secretKeyRef: { name: vitrine-segredos, key: DB_SENHA_ESTOQUE } }
+            - name: DB_SENHA_PAGAMENTOS
+              valueFrom: { secretKeyRef: { name: vitrine-segredos, key: DB_SENHA_PAGAMENTOS } }
+            - name: DB_SENHA_NOTIFICACOES
+              valueFrom: { secretKeyRef: { name: vitrine-segredos, key: DB_SENHA_NOTIFICACOES } }
+            - name: DB_SENHA_KEYCLOAK
+              valueFrom: { secretKeyRef: { name: vitrine-segredos, key: DB_SENHA_KEYCLOAK } }
+            - name: PGCTLTIMEOUT
+              value: "300"
+          readinessProbe:
+            exec:
+              command: ["pg_isready", "-U", "postgres"]
+            periodSeconds: 5
+            # O padrao (1 s) estoura com o disco ocupado na partida a frio.
+            timeoutSeconds: 5
+          resources:
+            requests: { cpu: 100m, memory: 256Mi }
+            limits: { memory: 1Gi }
+          securityContext:
+            allowPrivilegeEscalation: false
+            readOnlyRootFilesystem: true
+            capabilities:
+              drop: ["ALL"]
+          volumeMounts:
+            - name: dados
+              mountPath: /var/lib/postgresql
+            - name: init
+              mountPath: /docker-entrypoint-initdb.d
+              readOnly: true
+            # Com o disco do container somente leitura, o socket e os arquivos
+            # temporarios do Postgres precisam de pastas proprias.
+            - name: socket
+              mountPath: /var/run/postgresql
+            - name: tmp
+              mountPath: /tmp
+      volumes:
+        - name: init
+          configMap:
+            name: postgres-init
+            defaultMode: 0555
+        - name: socket
+          emptyDir: {}
+        - name: tmp
+          emptyDir: {}
+  volumeClaimTemplates:
+    - metadata:
+        name: dados
+      spec:
+        accessModes: ["ReadWriteOnce"]
+        resources:
+          requests:
+            storage: 10Gi
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: db
+spec:
+  selector:
+    app: db
+  ports:
+    - port: 5432

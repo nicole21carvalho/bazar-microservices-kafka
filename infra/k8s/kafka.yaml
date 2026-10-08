@@ -1,0 +1,124 @@
+# Kafka em modo KRaft (sem ZooKeeper), um broker. Para producao de verdade:
+# 3 brokers, fator de replicacao 3, SASL e TLS (veja SECURITY.md).
+apiVersion: apps/v1
+kind: StatefulSet
+metadata:
+  name: kafka
+spec:
+  serviceName: kafka
+  replicas: 1
+  selector:
+    matchLabels:
+      app: kafka
+  template:
+    metadata:
+      labels:
+        app: kafka
+    spec:
+      securityContext:
+        runAsNonRoot: true
+        runAsUser: 1000 # usuario "appuser" da imagem
+        runAsGroup: 1000
+        fsGroup: 1000
+        seccompProfile:
+          type: RuntimeDefault
+      containers:
+        - name: kafka
+          image: apache/kafka:4.3.1
+          ports:
+            - containerPort: 9092
+          env:
+            - { name: KAFKA_NODE_ID, value: "1" }
+            - { name: KAFKA_PROCESS_ROLES, value: "broker,controller" }
+            - { name: KAFKA_LISTENERS, value: "PLAINTEXT://:9092,CONTROLLER://localhost:9093" }
+            - { name: KAFKA_ADVERTISED_LISTENERS, value: "PLAINTEXT://kafka:9092" }
+            - { name: KAFKA_CONTROLLER_LISTENER_NAMES, value: "CONTROLLER" }
+            - { name: KAFKA_LISTENER_SECURITY_PROTOCOL_MAP, value: "CONTROLLER:PLAINTEXT,PLAINTEXT:PLAINTEXT" }
+            - { name: KAFKA_CONTROLLER_QUORUM_VOTERS, value: "1@localhost:9093" }
+            - { name: KAFKA_OFFSETS_TOPIC_REPLICATION_FACTOR, value: "1" }
+            - { name: KAFKA_TRANSACTION_STATE_LOG_REPLICATION_FACTOR, value: "1" }
+            - { name: KAFKA_TRANSACTION_STATE_LOG_MIN_ISR, value: "1" }
+            - { name: KAFKA_AUTO_CREATE_TOPICS_ENABLE, value: "false" }
+            - { name: KAFKA_LOG_DIRS, value: "/var/lib/kafka/data" }
+            - { name: KAFKA_HEAP_OPTS, value: "-Xmx768m -Xms768m" }
+          readinessProbe:
+            tcpSocket:
+              port: 9092
+            periodSeconds: 10
+          resources:
+            requests: { cpu: 200m, memory: 1Gi }
+            limits: { memory: 1536Mi }
+          # Sem readOnlyRootFilesystem: o script da imagem gera a configuracao
+          # do broker em /opt/kafka a partir das variaveis de ambiente.
+          securityContext:
+            allowPrivilegeEscalation: false
+            capabilities:
+              drop: ["ALL"]
+          volumeMounts:
+            - name: dados
+              mountPath: /var/lib/kafka/data
+  volumeClaimTemplates:
+    - metadata:
+        name: dados
+      spec:
+        accessModes: ["ReadWriteOnce"]
+        resources:
+          requests:
+            storage: 10Gi
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: kafka
+spec:
+  selector:
+    app: kafka
+  ports:
+    - port: 9092
+---
+# Cria os topicos (com retencao) e termina. Pode rodar de novo sem efeito
+# colateral: --if-not-exists. O Job concluido fica no cluster (sem TTL): se
+# fosse apagado, o Flux o recriaria a cada sincronizacao.
+apiVersion: batch/v1
+kind: Job
+metadata:
+  name: kafka-topicos
+  annotations:
+    # Um Job nao aceita mudancas depois de criado; quando o arquivo mudar, o
+    # Flux apaga e cria de novo.
+    kustomize.toolkit.fluxcd.io/force: enabled
+spec:
+  backoffLimit: 10
+  template:
+    metadata:
+      labels:
+        app: kafka-topicos
+        vitrine/acessa-kafka: "true"
+    spec:
+      restartPolicy: OnFailure
+      securityContext:
+        runAsNonRoot: true
+        runAsUser: 1000
+        seccompProfile:
+          type: RuntimeDefault
+      containers:
+        - name: topicos
+          image: apache/kafka:4.3.1
+          command: ["sh", "-c"]
+          args:
+            - |
+              criar() {
+                /opt/kafka/bin/kafka-topics.sh --bootstrap-server kafka:9092 \
+                  --create --if-not-exists --topic "$1" --partitions 3 --replication-factor 1 \
+                  --config retention.ms="$2"
+              }
+              for t in vitrine.pedidos vitrine.estoque vitrine.pagamentos; do
+                criar "$t" 604800000 && criar "$t-dlt" 2592000000 || exit 1
+              done
+          resources:
+            requests: { cpu: 50m, memory: 256Mi }
+            limits: { memory: 512Mi }
+          securityContext:
+            allowPrivilegeEscalation: false
+            capabilities:
+              drop: ["ALL"]

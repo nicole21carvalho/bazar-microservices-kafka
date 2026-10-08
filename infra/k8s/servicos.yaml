@@ -1,0 +1,351 @@
+# Os cinco servicos Spring Boot. Todos com o mesmo endurecimento:
+# - sem root (uid 1001), disco do container somente leitura, sem capacidades;
+# - actuator so na porta 9000, usada pelas sondas e nunca publicada;
+# - startupProbe generosa (ate 10 min): na partida a frio todas as JVMs sobem
+#   juntas e esperam o banco e o Kafka, e reiniciar no meio so atrasa tudo.
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: gateway
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: gateway
+  template:
+    metadata:
+      labels:
+        app: gateway
+        vitrine/envia-traces: "true"
+    spec:
+      securityContext:
+        runAsNonRoot: true
+        runAsUser: 1001
+        runAsGroup: 1001
+        seccompProfile:
+          type: RuntimeDefault
+      containers:
+        - name: gateway
+          image: vitrine-gateway
+          ports:
+            - containerPort: 8080
+            - containerPort: 9000
+          env:
+            - name: URL_PUBLICA
+              valueFrom: { configMapKeyRef: { name: vitrine-endereco, key: URL_PUBLICA } }
+            - { name: KEYCLOAK_EMISSOR, value: "$(URL_PUBLICA)/auth/realms/vitrine" }
+            - { name: KEYCLOAK_CHAVES, value: "http://keycloak:8080/auth/realms/vitrine/protocol/openid-connect/certs" }
+            - { name: CORS_ORIGENS, value: "$(URL_PUBLICA)" }
+            - { name: ESTOQUE_URL, value: "http://estoque:8082" }
+            - { name: PEDIDOS_URL, value: "http://pedidos:8081" }
+            - { name: OTLP_TRACES, value: "http://jaeger:4318/v1/traces" }
+            # Atras do Ingress, o IP do cliente vem no X-Forwarded-For. "native"
+            # so confia nesse cabecalho quando quem o envia e da rede interna
+            # (o proprio Ingress); o limite por IP passa a valer por cliente.
+            - { name: SERVER_FORWARD_HEADERS_STRATEGY, value: "native" }
+          startupProbe:
+            httpGet: { path: /actuator/health/liveness, port: 9000 }
+            periodSeconds: 5
+            failureThreshold: 120
+          readinessProbe:
+            httpGet: { path: /actuator/health/readiness, port: 9000 }
+            periodSeconds: 10
+          livenessProbe:
+            httpGet: { path: /actuator/health/liveness, port: 9000 }
+            periodSeconds: 20
+          resources:
+            requests: { cpu: 100m, memory: 384Mi }
+            limits: { memory: 768Mi }
+          securityContext:
+            allowPrivilegeEscalation: false
+            readOnlyRootFilesystem: true
+            capabilities:
+              drop: ["ALL"]
+          volumeMounts:
+            - name: tmp
+              mountPath: /tmp
+      volumes:
+        - name: tmp
+          emptyDir:
+            sizeLimit: 64Mi
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: gateway
+spec:
+  selector:
+    app: gateway
+  ports:
+    - port: 8080
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: pedidos
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: pedidos
+  template:
+    metadata:
+      labels:
+        app: pedidos
+        vitrine/acessa-db: "true"
+        vitrine/acessa-kafka: "true"
+        vitrine/envia-traces: "true"
+    spec:
+      securityContext:
+        runAsNonRoot: true
+        runAsUser: 1001
+        runAsGroup: 1001
+        seccompProfile:
+          type: RuntimeDefault
+      containers:
+        - name: pedidos
+          image: vitrine-pedidos
+          ports:
+            - containerPort: 8081
+            - containerPort: 9000
+          env:
+            - name: URL_PUBLICA
+              valueFrom: { configMapKeyRef: { name: vitrine-endereco, key: URL_PUBLICA } }
+            - { name: KEYCLOAK_EMISSOR, value: "$(URL_PUBLICA)/auth/realms/vitrine" }
+            - { name: KEYCLOAK_CHAVES, value: "http://keycloak:8080/auth/realms/vitrine/protocol/openid-connect/certs" }
+            - { name: DB_HOST, value: "db" }
+            - { name: KAFKA_SERVIDORES, value: "kafka:9092" }
+            - { name: OTLP_TRACES, value: "http://jaeger:4318/v1/traces" }
+            - name: DB_SENHA_PEDIDOS
+              valueFrom: { secretKeyRef: { name: vitrine-segredos, key: DB_SENHA_PEDIDOS } }
+          startupProbe:
+            httpGet: { path: /actuator/health/liveness, port: 9000 }
+            periodSeconds: 5
+            failureThreshold: 120
+          readinessProbe:
+            httpGet: { path: /actuator/health/readiness, port: 9000 }
+            periodSeconds: 10
+          livenessProbe:
+            httpGet: { path: /actuator/health/liveness, port: 9000 }
+            periodSeconds: 20
+          resources:
+            requests: { cpu: 100m, memory: 384Mi }
+            limits: { memory: 768Mi }
+          securityContext:
+            allowPrivilegeEscalation: false
+            readOnlyRootFilesystem: true
+            capabilities:
+              drop: ["ALL"]
+          volumeMounts:
+            - name: tmp
+              mountPath: /tmp
+      volumes:
+        - name: tmp
+          emptyDir:
+            sizeLimit: 64Mi
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: pedidos
+spec:
+  selector:
+    app: pedidos
+  ports:
+    - port: 8081
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: estoque
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: estoque
+  template:
+    metadata:
+      labels:
+        app: estoque
+        vitrine/acessa-db: "true"
+        vitrine/acessa-kafka: "true"
+        vitrine/envia-traces: "true"
+    spec:
+      securityContext:
+        runAsNonRoot: true
+        runAsUser: 1001
+        runAsGroup: 1001
+        seccompProfile:
+          type: RuntimeDefault
+      containers:
+        - name: estoque
+          image: vitrine-estoque
+          ports:
+            - containerPort: 8082
+            - containerPort: 9000
+          env:
+            - { name: DB_HOST, value: "db" }
+            - { name: KAFKA_SERVIDORES, value: "kafka:9092" }
+            - { name: OTLP_TRACES, value: "http://jaeger:4318/v1/traces" }
+            - name: DB_SENHA_ESTOQUE
+              valueFrom: { secretKeyRef: { name: vitrine-segredos, key: DB_SENHA_ESTOQUE } }
+          startupProbe:
+            httpGet: { path: /actuator/health/liveness, port: 9000 }
+            periodSeconds: 5
+            failureThreshold: 120
+          readinessProbe:
+            httpGet: { path: /actuator/health/readiness, port: 9000 }
+            periodSeconds: 10
+          livenessProbe:
+            httpGet: { path: /actuator/health/liveness, port: 9000 }
+            periodSeconds: 20
+          resources:
+            requests: { cpu: 100m, memory: 384Mi }
+            limits: { memory: 768Mi }
+          securityContext:
+            allowPrivilegeEscalation: false
+            readOnlyRootFilesystem: true
+            capabilities:
+              drop: ["ALL"]
+          volumeMounts:
+            - name: tmp
+              mountPath: /tmp
+      volumes:
+        - name: tmp
+          emptyDir:
+            sizeLimit: 64Mi
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: estoque
+spec:
+  selector:
+    app: estoque
+  ports:
+    - port: 8082
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: pagamentos
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: pagamentos
+  template:
+    metadata:
+      labels:
+        app: pagamentos
+        vitrine/acessa-db: "true"
+        vitrine/acessa-kafka: "true"
+        vitrine/envia-traces: "true"
+    spec:
+      securityContext:
+        runAsNonRoot: true
+        runAsUser: 1001
+        runAsGroup: 1001
+        seccompProfile:
+          type: RuntimeDefault
+      containers:
+        - name: pagamentos
+          image: vitrine-pagamentos
+          ports:
+            - containerPort: 8083
+            - containerPort: 9000
+          env:
+            - { name: DB_HOST, value: "db" }
+            - { name: KAFKA_SERVIDORES, value: "kafka:9092" }
+            - { name: OTLP_TRACES, value: "http://jaeger:4318/v1/traces" }
+            - { name: LIMITE_APROVACAO, value: "1000.00" }
+            - name: DB_SENHA_PAGAMENTOS
+              valueFrom: { secretKeyRef: { name: vitrine-segredos, key: DB_SENHA_PAGAMENTOS } }
+          startupProbe:
+            httpGet: { path: /actuator/health/liveness, port: 9000 }
+            periodSeconds: 5
+            failureThreshold: 120
+          readinessProbe:
+            httpGet: { path: /actuator/health/readiness, port: 9000 }
+            periodSeconds: 10
+          livenessProbe:
+            httpGet: { path: /actuator/health/liveness, port: 9000 }
+            periodSeconds: 20
+          resources:
+            requests: { cpu: 100m, memory: 384Mi }
+            limits: { memory: 768Mi }
+          securityContext:
+            allowPrivilegeEscalation: false
+            readOnlyRootFilesystem: true
+            capabilities:
+              drop: ["ALL"]
+          volumeMounts:
+            - name: tmp
+              mountPath: /tmp
+      volumes:
+        - name: tmp
+          emptyDir:
+            sizeLimit: 64Mi
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: notificacoes
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: notificacoes
+  template:
+    metadata:
+      labels:
+        app: notificacoes
+        vitrine/acessa-db: "true"
+        vitrine/acessa-kafka: "true"
+        vitrine/envia-traces: "true"
+        vitrine/envia-email: "true"
+    spec:
+      securityContext:
+        runAsNonRoot: true
+        runAsUser: 1001
+        runAsGroup: 1001
+        seccompProfile:
+          type: RuntimeDefault
+      containers:
+        - name: notificacoes
+          image: vitrine-notificacoes
+          ports:
+            - containerPort: 8084
+            - containerPort: 9000
+          env:
+            - { name: DB_HOST, value: "db" }
+            - { name: KAFKA_SERVIDORES, value: "kafka:9092" }
+            - { name: OTLP_TRACES, value: "http://jaeger:4318/v1/traces" }
+            - { name: SMTP_HOST, value: "mailpit" }
+            - name: DB_SENHA_NOTIFICACOES
+              valueFrom: { secretKeyRef: { name: vitrine-segredos, key: DB_SENHA_NOTIFICACOES } }
+          startupProbe:
+            httpGet: { path: /actuator/health/liveness, port: 9000 }
+            periodSeconds: 5
+            failureThreshold: 120
+          readinessProbe:
+            httpGet: { path: /actuator/health/readiness, port: 9000 }
+            periodSeconds: 10
+          livenessProbe:
+            httpGet: { path: /actuator/health/liveness, port: 9000 }
+            periodSeconds: 20
+          resources:
+            requests: { cpu: 100m, memory: 384Mi }
+            limits: { memory: 768Mi }
+          securityContext:
+            allowPrivilegeEscalation: false
+            readOnlyRootFilesystem: true
+            capabilities:
+              drop: ["ALL"]
+          volumeMounts:
+            - name: tmp
+              mountPath: /tmp
+      volumes:
+        - name: tmp
+          emptyDir:
+            sizeLimit: 64Mi

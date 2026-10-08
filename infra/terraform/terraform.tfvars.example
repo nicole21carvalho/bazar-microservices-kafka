@@ -1,0 +1,8 @@
+# Copie para terraform.tfvars (que o .gitignore ja ignora) e preencha.
+# Nada aqui e senha: as credenciais da Oracle ficam em ~/.oci/config, e as
+# senhas da aplicacao sao geradas dentro da propria VM.
+
+regiao             = "sa-saopaulo-1"
+compartimento_ocid = "ocid1.tenancy.oc1..substitua"
+chave_ssh_publica  = "ssh-ed25519 AAAA...substitua"
+ip_administracao   = "203.0.113.10/32" # o seu IP publico, com /32

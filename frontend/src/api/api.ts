@@ -1,6 +1,7 @@
 import { entrar, token } from "../auth/auth";
 
-const API = import.meta.env.VITE_API_URL ?? "http://localhost:8080";
+// Vazio: a API esta no mesmo endereco do painel (/api), como na nuvem.
+const API = import.meta.env.VITE_API_URL ?? "";
 
 export type Produto = { id: string; nome: string; preco: number; disponivel: number };
 

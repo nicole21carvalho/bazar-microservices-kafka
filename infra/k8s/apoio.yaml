@@ -1,0 +1,125 @@
+# Servicos de apoio da demonstracao. Nenhum dos dois tem rota no Ingress:
+# as telas so abrem por kubectl port-forward (veja infra/README.md).
+
+# Mailpit: recebe os e-mails da loja e mostra numa pagina, sem entregar a
+# ninguem de verdade. Num ambiente real, aqui entraria um provedor de SMTP.
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: mailpit
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: mailpit
+  template:
+    metadata:
+      labels:
+        app: mailpit
+    spec:
+      securityContext:
+        runAsNonRoot: true
+        runAsUser: 1000
+        runAsGroup: 1000
+        seccompProfile:
+          type: RuntimeDefault
+      containers:
+        - name: mailpit
+          image: axllent/mailpit:v1.31
+          ports:
+            - containerPort: 1025
+            - containerPort: 8025
+          env:
+            # O banco dos e-mails vai para o volume; o resto do disco e
+            # somente leitura.
+            - { name: MP_DATABASE, value: "/data/mailpit.db" }
+          resources:
+            requests: { cpu: 10m, memory: 32Mi }
+            limits: { memory: 128Mi }
+          securityContext:
+            allowPrivilegeEscalation: false
+            readOnlyRootFilesystem: true
+            capabilities:
+              drop: ["ALL"]
+          volumeMounts:
+            - name: dados
+              mountPath: /data
+            - name: tmp
+              mountPath: /tmp
+      volumes:
+        - name: dados
+          emptyDir:
+            sizeLimit: 256Mi
+        - name: tmp
+          emptyDir:
+            sizeLimit: 64Mi
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: mailpit
+spec:
+  selector:
+    app: mailpit
+  ports:
+    - name: smtp
+      port: 1025
+    - name: web
+      port: 8025
+---
+# Jaeger: recebe os traces por OTLP e mostra cada pedido atravessando os
+# servicos. Guarda na memoria: reiniciou, os traces somem (ok para demo).
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: jaeger
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: jaeger
+  template:
+    metadata:
+      labels:
+        app: jaeger
+    spec:
+      securityContext:
+        runAsNonRoot: true
+        runAsUser: 10001
+        runAsGroup: 10001
+        seccompProfile:
+          type: RuntimeDefault
+      containers:
+        - name: jaeger
+          image: jaegertracing/jaeger:2.22.0
+          ports:
+            - containerPort: 4318
+            - containerPort: 16686
+          resources:
+            requests: { cpu: 50m, memory: 128Mi }
+            limits: { memory: 512Mi }
+          securityContext:
+            allowPrivilegeEscalation: false
+            readOnlyRootFilesystem: true
+            capabilities:
+              drop: ["ALL"]
+          volumeMounts:
+            - name: tmp
+              mountPath: /tmp
+      volumes:
+        - name: tmp
+          emptyDir:
+            sizeLimit: 64Mi
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: jaeger
+spec:
+  selector:
+    app: jaeger
+  ports:
+    - name: otlp-http
+      port: 4318
+    - name: ui
+      port: 16686

@@ -1,0 +1,9 @@
+apiVersion: v1
+kind: Namespace
+metadata:
+  name: vitrine
+  labels:
+    # Pod Security "restricted": o cluster recusa pod que rode como root, ganhe
+    # privilegio, monte disco do no ou mantenha capacidades do Linux.
+    pod-security.kubernetes.io/enforce: restricted
+    pod-security.kubernetes.io/enforce-version: latest

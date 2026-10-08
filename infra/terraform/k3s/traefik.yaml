@@ -1,0 +1,26 @@
+# Ajustes do Traefik que ja vem no k3s. O cloud-init grava este arquivo na
+# pasta de manifestos do k3s, que o aplica sozinho.
+apiVersion: helm.cattle.io/v1
+kind: HelmChartConfig
+metadata:
+  name: traefik
+  namespace: kube-system
+spec:
+  valuesContent: |-
+    ports:
+      web:
+        # Todo acesso por HTTP vira HTTPS (redirecionamento permanente)...
+        http:
+          redirections:
+            entryPoint:
+              to: websecure
+              scheme: https
+              permanent: true
+        # ...menos o desafio HTTP-01 do Let's Encrypt, que o cert-manager
+        # responde por HTTP mesmo.
+        allowACMEByPass: true
+    service:
+      spec:
+        # Mantem o IP de quem acessa. Sem isto, todo pedido chegaria com o IP
+        # do proprio no, e o limite por IP do gateway valeria para todos juntos.
+        externalTrafficPolicy: Local

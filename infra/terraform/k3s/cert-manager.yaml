@@ -1,0 +1,16 @@
+# cert-manager: emite e renova o certificado HTTPS do Let's Encrypt. O k3s
+# instala o chart sozinho a partir deste arquivo (helm-controller embutido).
+apiVersion: helm.cattle.io/v1
+kind: HelmChart
+metadata:
+  name: cert-manager
+  namespace: kube-system
+spec:
+  repo: https://charts.jetstack.io
+  chart: cert-manager
+  version: v1.21.2
+  targetNamespace: cert-manager
+  createNamespace: true
+  valuesContent: |-
+    crds:
+      enabled: true

@@ -1,0 +1,87 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: keycloak
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: keycloak
+  template:
+    metadata:
+      labels:
+        app: keycloak
+        vitrine/acessa-db: "true"
+    spec:
+      securityContext:
+        runAsNonRoot: true
+        runAsUser: 1000
+        runAsGroup: 0
+        seccompProfile:
+          type: RuntimeDefault
+      containers:
+        - name: keycloak
+          image: quay.io/keycloak/keycloak:26.8.0
+          args: ["start", "--import-realm"]
+          ports:
+            - containerPort: 8080
+            - containerPort: 9000
+          env:
+            - name: URL_PUBLICA
+              valueFrom: { configMapKeyRef: { name: vitrine-endereco, key: URL_PUBLICA } }
+            # O endereco publico vai no "iss" dos tokens; o realm aceita o
+            # mesmo endereco como destino do login (redirectUris).
+            - { name: KC_HOSTNAME, value: "$(URL_PUBLICA)/auth" }
+            - { name: VITRINE_URL_PUBLICA, value: "$(URL_PUBLICA)" }
+            - { name: KC_HTTP_RELATIVE_PATH, value: "/auth" }
+            - { name: KC_HTTP_MANAGEMENT_RELATIVE_PATH, value: "/" }
+            # O HTTPS termina no Ingress; o Keycloak confia nos cabecalhos
+            # X-Forwarded-* que o Ingress envia.
+            - { name: KC_HTTP_ENABLED, value: "true" }
+            - { name: KC_PROXY_HEADERS, value: "xforwarded" }
+            - { name: KC_HEALTH_ENABLED, value: "true" }
+            - { name: KC_DB, value: "postgres" }
+            - { name: KC_DB_URL, value: "jdbc:postgresql://db:5432/keycloak" }
+            - { name: KC_DB_USERNAME, value: "keycloak" }
+            - name: KC_DB_PASSWORD
+              valueFrom: { secretKeyRef: { name: vitrine-segredos, key: DB_SENHA_KEYCLOAK } }
+            - { name: KC_BOOTSTRAP_ADMIN_USERNAME, value: "admin" }
+            - name: KC_BOOTSTRAP_ADMIN_PASSWORD
+              valueFrom: { secretKeyRef: { name: vitrine-segredos, key: KC_SENHA_ADMIN } }
+          startupProbe:
+            httpGet: { path: /health/started, port: 9000 }
+            periodSeconds: 5
+            failureThreshold: 120
+          readinessProbe:
+            httpGet: { path: /health/ready, port: 9000 }
+            periodSeconds: 10
+          livenessProbe:
+            httpGet: { path: /health/live, port: 9000 }
+            periodSeconds: 20
+          resources:
+            requests: { cpu: 200m, memory: 768Mi }
+            limits: { memory: 1Gi }
+          # Sem readOnlyRootFilesystem: o Keycloak monta o servidor otimizado
+          # no proprio disco ao iniciar ("start" sem --optimized).
+          securityContext:
+            allowPrivilegeEscalation: false
+            capabilities:
+              drop: ["ALL"]
+          volumeMounts:
+            - name: realm
+              mountPath: /opt/keycloak/data/import
+              readOnly: true
+      volumes:
+        - name: realm
+          configMap:
+            name: keycloak-realm
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: keycloak
+spec:
+  selector:
+    app: keycloak
+  ports:
+    - port: 8080

@@ -1,0 +1,93 @@
+# Vitrine no Kubernetes (k3s na Oracle Cloud, ou qualquer cluster).
+# Na nuvem, quem aplica este arquivo e o Flux (veja infra/README.md). Em
+# outro cluster:
+#   1. crie o namespace vitrine e o Secret vitrine-segredos (infra/README.md)
+#   2. troque vitrine.example.com pelo seu dominio, aqui embaixo
+#   3. kubectl apply -k infra/
+#
+# A raiz fica em infra/, e nao em infra/k8s/, porque os ConfigMaps saem dos
+# mesmos arquivos que o docker compose usa (realm do Keycloak, script do
+# Postgres): uma fonte so, sem copia para desatualizar.
+apiVersion: kustomize.config.k8s.io/v1beta1
+kind: Kustomization
+namespace: vitrine
+
+labels:
+  - pairs:
+      app.kubernetes.io/part-of: vitrine
+    includeSelectors: false
+
+resources:
+  - k8s/namespace.yaml
+  - k8s/postgres.yaml
+  - k8s/kafka.yaml
+  - k8s/keycloak.yaml
+  - k8s/servicos.yaml
+  - k8s/web.yaml
+  - k8s/apoio.yaml
+  - k8s/ingress.yaml
+  - k8s/network-policies.yaml
+
+configMapGenerator:
+  - name: vitrine-endereco
+    literals:
+      - DOMINIO=vitrine.example.com
+      - URL_PUBLICA=https://vitrine.example.com
+  - name: keycloak-realm
+    files:
+      - keycloak/vitrine-realm.json
+  - name: postgres-init
+    files:
+      - postgres/criar-bancos.sh
+
+# Vale para todos os pods:
+# - nenhum conversa com a API do Kubernetes, entao nenhum recebe credencial
+#   dela (automountServiceAccountToken). Um pod invadido nao tem token;
+# - sem as variaveis automaticas de cada Service (DB_PORT=tcp://..., e assim
+#   por diante), que colidem com a configuracao das aplicacoes.
+patches:
+  - target:
+      kind: (Deployment|StatefulSet|Job)
+    patch: |-
+      - op: add
+        path: /spec/template/spec/automountServiceAccountToken
+        value: false
+      - op: add
+        path: /spec/template/spec/enableServiceLinks
+        value: false
+
+# O dominio do ConfigMap vai tambem para o Ingress e o certificado TLS.
+replacements:
+  - source:
+      kind: ConfigMap
+      name: vitrine-endereco
+      fieldPath: data.DOMINIO
+    targets:
+      - select:
+          kind: Ingress
+          name: vitrine
+        fieldPaths:
+          - spec.rules.0.host
+          - spec.tls.0.hosts.0
+
+# As imagens sao publicadas pelo CI no GitHub Container Registry, em x86 e ARM,
+# assinadas com cosign. O job de deploy do CI troca a tag pelo SHA do commit.
+images:
+  - name: vitrine-gateway
+    newName: ghcr.io/nicole21carvalho/vitrine-gateway
+    newTag: latest
+  - name: vitrine-pedidos
+    newName: ghcr.io/nicole21carvalho/vitrine-pedidos
+    newTag: latest
+  - name: vitrine-estoque
+    newName: ghcr.io/nicole21carvalho/vitrine-estoque
+    newTag: latest
+  - name: vitrine-pagamentos
+    newName: ghcr.io/nicole21carvalho/vitrine-pagamentos
+    newTag: latest
+  - name: vitrine-notificacoes
+    newName: ghcr.io/nicole21carvalho/vitrine-notificacoes
+    newTag: latest
+  - name: vitrine-web
+    newName: ghcr.io/nicole21carvalho/vitrine-web
+    newTag: latest

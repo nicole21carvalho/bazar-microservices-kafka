@@ -1,0 +1,16 @@
+# Emissor do certificado (o Ingress da Vitrine pede por ele pelo nome).
+apiVersion: cert-manager.io/v1
+kind: ClusterIssuer
+metadata:
+  name: letsencrypt
+spec:
+  acme:
+    server: https://acme-v02.api.letsencrypt.org/directory
+    # Sem e-mail: o Let's Encrypt nao exige, e assim nenhum dado pessoal vai
+    # para o repositorio nem para a conta ACME.
+    privateKeySecretRef:
+      name: letsencrypt-conta
+    solvers:
+      - http01:
+          ingress:
+            ingressClassName: traefik

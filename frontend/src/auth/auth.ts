@@ -1,7 +1,9 @@
 import { InMemoryWebStorage, UserManager, WebStorageStateStore } from "oidc-client-ts";
 
-const KEYCLOAK = import.meta.env.VITE_KEYCLOAK_URL ?? "http://localhost:8180/realms/vitrine";
-const CLIENTE = import.meta.env.VITE_KEYCLOAK_CLIENTE ?? "vitrine-web";
+// Vazio no build: o Keycloak esta no mesmo endereco do painel, em /auth (como
+// na nuvem, atras de um unico Ingress). O compose local informa a porta dele.
+const KEYCLOAK = import.meta.env.VITE_KEYCLOAK_URL || `${window.location.origin}/auth/realms/vitrine`;
+const CLIENTE = import.meta.env.VITE_KEYCLOAK_CLIENTE || "vitrine-web";
 
 /**
  * Login pelo Keycloak com Authorization Code + PKCE: o navegador nunca ve a

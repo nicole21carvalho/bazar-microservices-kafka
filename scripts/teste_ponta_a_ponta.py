@@ -7,30 +7,40 @@ fica no repositorio.
 
     pip install httpx
     python scripts/teste_ponta_a_ponta.py
+
+Os enderecos padrao sao os do docker compose. Para testar outro ambiente (o
+cluster Kubernetes, por exemplo), use as variaveis E2E_GATEWAY, E2E_KEYCLOAK,
+E2E_MAILPIT e E2E_JAEGER; E2E_CA aponta o certificado da autoridade que assina
+o HTTPS, e KC_SENHA_ADMIN substitui a senha lida do .env.
 """
 
 import collections
 import datetime
 import json
+import os
 import pathlib
 import secrets
+import ssl
 import sys
 import time
 
 import httpx
 
-GATEWAY = "http://localhost:8080"
-KEYCLOAK = "http://localhost:8180"
-MAILPIT = "http://localhost:8025"
-JAEGER = "http://localhost:16686"
+GATEWAY = os.environ.get("E2E_GATEWAY", "http://localhost:8080")
+KEYCLOAK = os.environ.get("E2E_KEYCLOAK", "http://localhost:8180")
+MAILPIT = os.environ.get("E2E_MAILPIT", "http://localhost:8025")
+JAEGER = os.environ.get("E2E_JAEGER", "http://localhost:16686")
 ESPERA = httpx.Timeout(60.0)
+VERIFICAR = ssl.create_default_context(cafile=os.environ["E2E_CA"]) if "E2E_CA" in os.environ else True
 
 raiz = pathlib.Path(__file__).resolve().parents[1]
+arquivo_env = raiz / ".env"
 ENV = dict(
     linha.split("=", 1)
-    for linha in (raiz / ".env").read_text(encoding="utf-8").split()
+    for linha in (arquivo_env.read_text(encoding="utf-8").split() if arquivo_env.exists() else [])
     if "=" in linha and not linha.startswith("#")
 )
+ENV.update({k: v for k, v in os.environ.items() if k == "KC_SENHA_ADMIN"})
 falhas = 0
 
 
@@ -49,7 +59,7 @@ def servicos_por_trace(servico="gateway", minutos=15):
         "query.start_time_max": agora.isoformat().replace("+00:00", "Z"),
         "query.search_depth": 100,
     }
-    resposta = httpx.get(f"{JAEGER}/api/v3/traces", params=params, timeout=ESPERA)
+    resposta = httpx.get(f"{JAEGER}/api/v3/traces", params=params, timeout=ESPERA, verify=VERIFICAR)
     resposta.raise_for_status()
     servicos = collections.defaultdict(set)
     for linha in resposta.text.splitlines():
@@ -64,10 +74,10 @@ def servicos_por_trace(servico="gateway", minutos=15):
 
 
 # --- Preparacao no Keycloak, como admin ---
-admin = httpx.post(f"{KEYCLOAK}/realms/master/protocol/openid-connect/token", timeout=ESPERA, data={
+admin = httpx.post(f"{KEYCLOAK}/realms/master/protocol/openid-connect/token", timeout=ESPERA, verify=VERIFICAR, data={
     "grant_type": "password", "client_id": "admin-cli", "username": "admin", "password": ENV["KC_SENHA_ADMIN"],
 }).raise_for_status().json()["access_token"]
-adm = httpx.Client(base_url=f"{KEYCLOAK}/admin/realms/vitrine", timeout=ESPERA,
+adm = httpx.Client(base_url=f"{KEYCLOAK}/admin/realms/vitrine", timeout=ESPERA, verify=VERIFICAR,
                    headers={"Authorization": f"Bearer {admin}"})
 
 senha = secrets.token_urlsafe(16)
@@ -98,7 +108,7 @@ cliente_uuid = adm.get("/clients", params={"clientId": cliente_id}).json()[0]["i
 
 
 def pedir_token(usuario):
-    return httpx.post(f"{KEYCLOAK}/realms/vitrine/protocol/openid-connect/token", timeout=ESPERA, data={
+    return httpx.post(f"{KEYCLOAK}/realms/vitrine/protocol/openid-connect/token", timeout=ESPERA, verify=VERIFICAR, data={
         "grant_type": "password", "client_id": cliente_id, "client_secret": segredo,
         "username": usuario, "password": senha, "scope": "openid email",
     })
@@ -106,15 +116,20 @@ def pedir_token(usuario):
 
 try:
     cab = {"Authorization": f"Bearer {pedir_token(email).raise_for_status().json()['access_token']}"}
-    http = httpx.Client(base_url=GATEWAY, timeout=ESPERA)
+    http = httpx.Client(base_url=GATEWAY, timeout=ESPERA, verify=VERIFICAR)
 
     # --- Seguranca ---
     conferir("catalogo abre sem login", http.get("/api/produtos").status_code == 200)
     conferir("pedidos sem token -> 401", http.get("/api/pedidos").status_code == 401)
     conferir("token forjado -> 401",
              http.get("/api/pedidos", headers={"Authorization": "Bearer abc.def.ghi"}).status_code == 401)
-    conferir("rota nao liberada -> 401/403", http.get("/actuator/env", headers=cab).status_code in (401, 403))
-    conferir("metricas fora da porta publica", http.get("/actuator/prometheus").status_code != 200)
+    # Pelo compose, o gateway recusa (401/403). No cluster, o que nao e /api
+    # vai para o painel, que devolve a pagina dele: o que importa e que o
+    # actuator nao aparece por nenhum dos dois caminhos.
+    r = http.get("/actuator/env", headers=cab)
+    conferir("actuator/env nao exposto", r.status_code in (401, 403) or "propertySources" not in r.text)
+    r = http.get("/actuator/prometheus")
+    conferir("metricas fora da porta publica", r.status_code != 200 or "jvm_memory" not in r.text)
     r = pedir_token(email_nao_verificado)
     conferir("e-mail nao confirmado: Keycloak nem emite token", r.status_code == 400,
              r.json().get("error_description", ""))
@@ -154,7 +169,8 @@ try:
     conferir("lista so os pedidos do proprio cliente", len(http.get("/api/pedidos", headers=cab).json()) == 3)
 
     time.sleep(3)
-    msgs = httpx.get(f"{MAILPIT}/api/v1/search", params={"query": f"to:{email}"}, timeout=ESPERA).json()["messages"]
+    msgs = httpx.get(f"{MAILPIT}/api/v1/search", params={"query": f"to:{email}"}, timeout=ESPERA,
+                     verify=VERIFICAR).json()["messages"]
     conferir("3 e-mails para o cliente", len(msgs) == 3, str(sorted(m["Subject"] for m in msgs)))
 
     # --- Rate limiting: rajada de pedidos, sem esperar a saga entre eles ---

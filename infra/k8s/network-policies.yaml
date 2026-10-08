@@ -1,0 +1,170 @@
+# Tudo bloqueado por padrao; cada regra libera so o caminho necessario.
+# Se um pod for invadido, ele nao alcanca o banco a menos que seja um servico
+# que usa o banco, e nao consegue mandar dados para fora do cluster. O k3s
+# aplica estas regras (controlador de NetworkPolicy embutido). As sondas do
+# kubelet e o kubectl port-forward nao passam pela rede dos pods: continuam
+# funcionando.
+apiVersion: networking.k8s.io/v1
+kind: NetworkPolicy
+metadata:
+  name: negar-tudo
+spec:
+  podSelector: {}
+  policyTypes: ["Ingress", "Egress"]
+---
+# Saida: so para outros pods da Vitrine e para o DNS do cluster. Nenhum pod
+# precisa da internet (as chaves do Keycloak vem pelo endereco interno).
+apiVersion: networking.k8s.io/v1
+kind: NetworkPolicy
+metadata:
+  name: saida-so-para-dentro
+spec:
+  podSelector: {}
+  policyTypes: ["Egress"]
+  egress:
+    - to:
+        - podSelector: {}
+    - to:
+        - namespaceSelector:
+            matchLabels:
+              kubernetes.io/metadata.name: kube-system
+          podSelector:
+            matchLabels:
+              k8s-app: kube-dns
+      ports:
+        - { port: 53, protocol: UDP }
+        - { port: 53, protocol: TCP }
+---
+# O Ingress (Traefik, no namespace kube-system) so fala com quem e publico,
+# e so na porta da aplicacao: o actuator (9000) fica de fora.
+apiVersion: networking.k8s.io/v1
+kind: NetworkPolicy
+metadata:
+  name: publicos-recebem-do-ingress
+spec:
+  podSelector:
+    matchExpressions:
+      - { key: app, operator: In, values: ["web", "gateway", "keycloak"] }
+  ingress:
+    - from:
+        - namespaceSelector:
+            matchLabels:
+              kubernetes.io/metadata.name: kube-system
+      ports:
+        - port: 8080
+---
+# Desafio HTTP-01 do Let's Encrypt: o cert-manager cria um pod temporario
+# neste namespace, e o Ingress precisa alcanca-lo para o certificado sair.
+apiVersion: networking.k8s.io/v1
+kind: NetworkPolicy
+metadata:
+  name: desafio-do-certificado
+spec:
+  podSelector:
+    matchLabels:
+      acme.cert-manager.io/http01-solver: "true"
+  ingress:
+    - from:
+        - namespaceSelector:
+            matchLabels:
+              kubernetes.io/metadata.name: kube-system
+      ports:
+        - port: 8089
+---
+apiVersion: networking.k8s.io/v1
+kind: NetworkPolicy
+metadata:
+  name: pedidos-e-estoque-recebem-do-gateway
+spec:
+  podSelector:
+    matchExpressions:
+      - { key: app, operator: In, values: ["pedidos", "estoque"] }
+  ingress:
+    - from:
+        - podSelector:
+            matchLabels:
+              app: gateway
+      ports:
+        - port: 8081
+        - port: 8082
+---
+# As chaves publicas do Keycloak (JWKS) para validar os tokens.
+apiVersion: networking.k8s.io/v1
+kind: NetworkPolicy
+metadata:
+  name: keycloak-recebe-de-quem-valida-token
+spec:
+  podSelector:
+    matchLabels:
+      app: keycloak
+  ingress:
+    - from:
+        - podSelector:
+            matchExpressions:
+              - { key: app, operator: In, values: ["gateway", "pedidos"] }
+      ports:
+        - port: 8080
+---
+apiVersion: networking.k8s.io/v1
+kind: NetworkPolicy
+metadata:
+  name: banco-recebe-de-quem-usa-banco
+spec:
+  podSelector:
+    matchLabels:
+      app: db
+  ingress:
+    - from:
+        - podSelector:
+            matchLabels:
+              vitrine/acessa-db: "true"
+      ports:
+        - port: 5432
+---
+apiVersion: networking.k8s.io/v1
+kind: NetworkPolicy
+metadata:
+  name: kafka-recebe-de-quem-usa-kafka
+spec:
+  podSelector:
+    matchLabels:
+      app: kafka
+  ingress:
+    - from:
+        - podSelector:
+            matchLabels:
+              vitrine/acessa-kafka: "true"
+      ports:
+        - port: 9092
+---
+apiVersion: networking.k8s.io/v1
+kind: NetworkPolicy
+metadata:
+  name: jaeger-recebe-traces
+spec:
+  podSelector:
+    matchLabels:
+      app: jaeger
+  ingress:
+    - from:
+        - podSelector:
+            matchLabels:
+              vitrine/envia-traces: "true"
+      ports:
+        - port: 4318
+---
+apiVersion: networking.k8s.io/v1
+kind: NetworkPolicy
+metadata:
+  name: mailpit-recebe-das-notificacoes
+spec:
+  podSelector:
+    matchLabels:
+      app: mailpit
+  ingress:
+    - from:
+        - podSelector:
+            matchLabels:
+              vitrine/envia-email: "true"
+      ports:
+        - port: 1025

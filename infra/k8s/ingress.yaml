@@ -1,0 +1,55 @@
+# Um dominio so, com HTTPS: o painel em /, a API em /api e o login em /auth.
+# Mesmo endereco para tudo: sem CORS, e a CSP do painel fica so com 'self'.
+#
+# Traefik e o controlador que ja vem no k3s; o cloud-init do Terraform o
+# configura para mandar todo HTTP para HTTPS. O certificado sai do Let's
+# Encrypt pelo cert-manager (tambem instalado pelo cloud-init) e e renovado
+# sozinho.
+apiVersion: networking.k8s.io/v1
+kind: Ingress
+metadata:
+  name: vitrine
+  annotations:
+    cert-manager.io/cluster-issuer: letsencrypt
+spec:
+  ingressClassName: traefik
+  tls:
+    - hosts:
+        - vitrine.example.com # trocado pelo kustomization (replacements)
+      secretName: vitrine-tls
+  rules:
+    - host: vitrine.example.com
+      http:
+        paths:
+          - path: /api
+            pathType: Prefix
+            backend:
+              service:
+                name: gateway
+                port:
+                  number: 8080
+          # So o realm da loja e os arquivos das telas de login. Ficam fora
+          # da internet o console de administracao (/auth/admin) e o realm
+          # "master", o dos administradores: os dois so por port-forward,
+          # como recomenda a documentacao do Keycloak.
+          - path: /auth/realms/vitrine
+            pathType: Prefix
+            backend:
+              service:
+                name: keycloak
+                port:
+                  number: 8080
+          - path: /auth/resources
+            pathType: Prefix
+            backend:
+              service:
+                name: keycloak
+                port:
+                  number: 8080
+          - path: /
+            pathType: Prefix
+            backend:
+              service:
+                name: web
+                port:
+                  number: 8080
