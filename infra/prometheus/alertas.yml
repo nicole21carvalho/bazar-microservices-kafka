@@ -1,8 +1,8 @@
 groups:
-  - name: vitrine
+  - name: sagaz
     rules:
       - alert: ServicoForaDoAr
-        expr: up{job="vitrine"} == 0
+        expr: up{job="sagaz"} == 0
         for: 1m
         labels:
           severidade: critica
@@ -12,7 +12,7 @@ groups:
       - alert: OutboxAcumulando
         # Eventos que nao saem do banco: Kafka fora do ar ou lento. Os pedidos
         # continuam sendo aceitos, mas a saga para.
-        expr: vitrine_outbox_pendentes > 50
+        expr: sagaz_outbox_pendentes > 50
         for: 2m
         labels:
           severidade: alta
@@ -20,7 +20,7 @@ groups:
           resumo: "{{ $value }} eventos parados no outbox de {{ $labels.servico }}"
 
       - alert: MensagensNoDeadLetterTopic
-        expr: increase(vitrine_mensagens_dlt_total[10m]) > 0
+        expr: increase(sagaz_mensagens_dlt_total[10m]) > 0
         labels:
           severidade: alta
         annotations:
@@ -30,7 +30,7 @@ groups:
         # p95: 95% dos pedidos terminam abaixo deste tempo.
         expr: |
           histogram_quantile(0.95,
-            sum by (le) (rate(vitrine_saga_duracao_seconds_bucket[10m]))) > 30
+            sum by (le) (rate(sagaz_saga_duracao_seconds_bucket[10m]))) > 30
         for: 10m
         labels:
           severidade: media

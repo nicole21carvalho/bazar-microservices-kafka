@@ -1,5 +1,9 @@
 # Sobe tudo com: docker compose up -d --build
 
+# Nome fixo: containers, volumes e imagens ficam com o prefixo "sagaz",
+# seja qual for o nome da pasta onde o repositorio foi clonado.
+name: sagaz
+
 x-seguro: &seguro
   # Nenhum processo dentro ganha mais privilegio que o container tem, e o
   # container nao tem nenhuma capacidade especial do Linux.
@@ -108,7 +112,7 @@ services:
             --create --if-not-exists --topic $$1 --partitions 3 --replication-factor 1 \
             --config retention.ms=$$2
         }
-        for t in vitrine.pedidos vitrine.estoque vitrine.pagamentos; do
+        for t in sagaz.pedidos sagaz.estoque sagaz.pagamentos; do
           criar $$t 604800000
           criar $$t-dlt 2592000000
         done
@@ -133,7 +137,7 @@ services:
       KC_HTTP_ENABLED: "true"
       KC_HEALTH_ENABLED: "true"
     volumes:
-      - ./infra/keycloak/vitrine-realm.json:/opt/keycloak/data/import/vitrine-realm.json:ro
+      - ./infra/keycloak/sagaz-realm.json:/opt/keycloak/data/import/sagaz-realm.json:ro
     ports:
       - "127.0.0.1:8180:8080"
     # Com 768 MB ele ficava em ~85% de uso e a coleta de lixo deixava o
@@ -164,8 +168,8 @@ services:
     environment:
       ESTOQUE_URL: http://estoque:8082
       PEDIDOS_URL: http://pedidos:8081
-      KEYCLOAK_EMISSOR: http://localhost:8180/realms/vitrine
-      KEYCLOAK_CHAVES: http://keycloak:8080/realms/vitrine/protocol/openid-connect/certs
+      KEYCLOAK_EMISSOR: http://localhost:8180/realms/sagaz
+      KEYCLOAK_CHAVES: http://keycloak:8080/realms/sagaz/protocol/openid-connect/certs
       CORS_ORIGENS: http://localhost:5173
       OTLP_TRACES: http://jaeger:4318/v1/traces
       JAVA_TOOL_OPTIONS: -XX:+UseSerialGC
@@ -194,7 +198,7 @@ services:
       args:
         # Local, cada um na sua porta. Na nuvem ficam vazios: tudo no mesmo dominio.
         API_URL: http://localhost:8080
-        KEYCLOAK_URL: http://localhost:8180/realms/vitrine
+        KEYCLOAK_URL: http://localhost:8180/realms/sagaz
     read_only: true
     tmpfs:
       - /tmp:size=16m
@@ -236,7 +240,7 @@ services:
       GF_AUTH_ANONYMOUS_ORG_ROLE: Viewer
       GF_AUTH_DISABLE_LOGIN_FORM: "true"
       GF_AUTH_BASIC_ENABLED: "false"
-      GF_DASHBOARDS_DEFAULT_HOME_DASHBOARD_PATH: /var/lib/grafana/dashboards/vitrine.json
+      GF_DASHBOARDS_DEFAULT_HOME_DASHBOARD_PATH: /var/lib/grafana/dashboards/sagaz.json
     volumes:
       - ./infra/grafana/provisioning:/etc/grafana/provisioning:ro
       - ./infra/grafana/dashboards:/var/lib/grafana/dashboards:ro
@@ -266,8 +270,8 @@ services:
       start_period: 30s
     environment:
       <<: *ambiente
-      KEYCLOAK_EMISSOR: http://localhost:8180/realms/vitrine
-      KEYCLOAK_CHAVES: http://keycloak:8080/realms/vitrine/protocol/openid-connect/certs
+      KEYCLOAK_EMISSOR: http://localhost:8180/realms/sagaz
+      KEYCLOAK_CHAVES: http://keycloak:8080/realms/sagaz/protocol/openid-connect/certs
 
   estoque:
     <<: *servico

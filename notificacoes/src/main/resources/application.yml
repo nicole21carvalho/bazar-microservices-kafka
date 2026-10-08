@@ -46,6 +46,6 @@ management:
       probes:
         enabled: true
 
-vitrine:
+sagaz:
   notificacoes:
-    remetente: ${EMAIL_REMETENTE:nao-responda@vitrine.local}
+    remetente: ${EMAIL_REMETENTE:nao-responda@sagaz.local}

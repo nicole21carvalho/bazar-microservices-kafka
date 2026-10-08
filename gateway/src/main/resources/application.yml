@@ -22,13 +22,13 @@ spring:
           # navegador). As chaves sao buscadas pelo endereco interno, na rede
           # do compose ou do cluster. Com jwk-set-uri, o Spring nao tenta o
           # endereco publico de dentro do container: so confere o "iss".
-          issuer-uri: ${KEYCLOAK_EMISSOR:http://localhost:8180/realms/vitrine}
-          jwk-set-uri: ${KEYCLOAK_CHAVES:http://localhost:8180/realms/vitrine/protocol/openid-connect/certs}
+          issuer-uri: ${KEYCLOAK_EMISSOR:http://localhost:8180/realms/sagaz}
+          jwk-set-uri: ${KEYCLOAK_CHAVES:http://localhost:8180/realms/sagaz/protocol/openid-connect/certs}
           # O token precisa ter sido emitido para esta API. Um token valido do
           # mesmo Keycloak, mas para outro sistema, e recusado.
-          audiences: vitrine-api
+          audiences: sagaz-api
 
-vitrine:
+sagaz:
   cors:
     origens: ${CORS_ORIGENS:http://localhost:5173}
   limites:

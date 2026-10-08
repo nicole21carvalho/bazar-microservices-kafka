@@ -41,7 +41,7 @@ management:
       probes:
         enabled: true
 
-vitrine:
+sagaz:
   pagamentos:
     # Acima disso o "cartao" recusa: e o que faz a demonstracao mostrar a
     # compensacao da saga (o estoque devolve os itens).

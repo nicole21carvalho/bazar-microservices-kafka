@@ -11,7 +11,7 @@ spec:
     metadata:
       labels:
         app: keycloak
-        vitrine/acessa-db: "true"
+        sagaz/acessa-db: "true"
     spec:
       securityContext:
         runAsNonRoot: true
@@ -28,11 +28,11 @@ spec:
             - containerPort: 9000
           env:
             - name: URL_PUBLICA
-              valueFrom: { configMapKeyRef: { name: vitrine-endereco, key: URL_PUBLICA } }
+              valueFrom: { configMapKeyRef: { name: sagaz-endereco, key: URL_PUBLICA } }
             # O endereco publico vai no "iss" dos tokens; o realm aceita o
             # mesmo endereco como destino do login (redirectUris).
             - { name: KC_HOSTNAME, value: "$(URL_PUBLICA)/auth" }
-            - { name: VITRINE_URL_PUBLICA, value: "$(URL_PUBLICA)" }
+            - { name: SAGAZ_URL_PUBLICA, value: "$(URL_PUBLICA)" }
             - { name: KC_HTTP_RELATIVE_PATH, value: "/auth" }
             - { name: KC_HTTP_MANAGEMENT_RELATIVE_PATH, value: "/" }
             # O HTTPS termina no Ingress; o Keycloak confia nos cabecalhos
@@ -44,10 +44,10 @@ spec:
             - { name: KC_DB_URL, value: "jdbc:postgresql://db:5432/keycloak" }
             - { name: KC_DB_USERNAME, value: "keycloak" }
             - name: KC_DB_PASSWORD
-              valueFrom: { secretKeyRef: { name: vitrine-segredos, key: DB_SENHA_KEYCLOAK } }
+              valueFrom: { secretKeyRef: { name: sagaz-segredos, key: DB_SENHA_KEYCLOAK } }
             - { name: KC_BOOTSTRAP_ADMIN_USERNAME, value: "admin" }
             - name: KC_BOOTSTRAP_ADMIN_PASSWORD
-              valueFrom: { secretKeyRef: { name: vitrine-segredos, key: KC_SENHA_ADMIN } }
+              valueFrom: { secretKeyRef: { name: sagaz-segredos, key: KC_SENHA_ADMIN } }
           startupProbe:
             httpGet: { path: /health/started, port: 9000 }
             periodSeconds: 5

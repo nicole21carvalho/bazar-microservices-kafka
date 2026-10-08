@@ -8,17 +8,17 @@
 apiVersion: networking.k8s.io/v1
 kind: Ingress
 metadata:
-  name: vitrine
+  name: sagaz
   annotations:
     cert-manager.io/cluster-issuer: letsencrypt
 spec:
   ingressClassName: traefik
   tls:
     - hosts:
-        - vitrine.example.com # trocado pelo kustomization (replacements)
-      secretName: vitrine-tls
+        - sagaz.example.com # trocado pelo kustomization (replacements)
+      secretName: sagaz-tls
   rules:
-    - host: vitrine.example.com
+    - host: sagaz.example.com
       http:
         paths:
           - path: /api
@@ -32,7 +32,7 @@ spec:
           # da internet o console de administracao (/auth/admin) e o realm
           # "master", o dos administradores: os dois so por port-forward,
           # como recomenda a documentacao do Keycloak.
-          - path: /auth/realms/vitrine
+          - path: /auth/realms/sagaz
             pathType: Prefix
             backend:
               service:

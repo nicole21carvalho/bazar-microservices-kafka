@@ -1,4 +1,4 @@
-<h1 align="center">🛍️ Vitrine</h1>
+<h1 align="center">🛍️ Sagaz</h1>
 
 <p align="center">
   <b>Uma loja feita de microsserviços que conversam por eventos.</b><br>
@@ -32,7 +32,7 @@ Numa loja feita como um sistema só, comprar é uma transação no banco: reserv
 
 Com **microsserviços**, cada serviço tem o próprio banco, e não existe transação que atravesse os quatro. Se o pagamento for recusado *depois* de o estoque ter sido reservado, alguém precisa devolver os itens. Se o serviço cair entre gravar o pedido e avisar os outros, o pedido fica perdido. Se a mesma mensagem chegar duas vezes, o cliente não pode ser cobrado duas vezes.
 
-A Vitrine resolve esses problemas com os padrões usados em sistemas distribuídos de verdade: **saga coreografada com compensação**, **Transactional Outbox**, **consumo idempotente** e **Dead Letter Topic**. E mostra tudo funcionando: cada pedido aparece no painel andando etapa por etapa e vira um *trace* que atravessa os cinco serviços.
+A Sagaz resolve esses problemas com os padrões usados em sistemas distribuídos de verdade: **saga coreografada com compensação**, **Transactional Outbox**, **consumo idempotente** e **Dead Letter Topic**. E mostra tudo funcionando: cada pedido aparece no painel andando etapa por etapa e vira um *trace* que atravessa os cinco serviços.
 
 ## ⚙️ Como funciona
 
@@ -134,7 +134,7 @@ As escolhas que mais pesaram no resultado, e o porquê de cada uma.
 
 **8. Cada serviço sabe só o que precisa.** O `PedidoCriado` não leva o e-mail nem o id do cliente: o estoque não precisa saber quem comprou. Só os eventos finais levam o e-mail, porque o serviço de notificações precisa dele, e os tópicos guardam as mensagens por 7 dias. É a minimização de dados da LGPD aplicada ao desenho dos eventos.
 
-**9. O token é validado duas vezes, e só existe na memória do navegador.** O gateway confere emissor, audiência (`vitrine-api`) e validade do JWT, e o serviço de pedidos confere de novo: quem chegar à rede interna sem passar pelo gateway continua barrado. O e-mail só é aceito se o Keycloak disser que foi confirmado. No navegador, o token fica **só na memória** (nada no `localStorage`, onde um script injetado o encontraria), e a sessão volta ao recarregar a página por um *iframe* silencioso no Keycloak.
+**9. O token é validado duas vezes, e só existe na memória do navegador.** O gateway confere emissor, audiência (`sagaz-api`) e validade do JWT, e o serviço de pedidos confere de novo: quem chegar à rede interna sem passar pelo gateway continua barrado. O e-mail só é aceito se o Keycloak disser que foi confirmado. No navegador, o token fica **só na memória** (nada no `localStorage`, onde um script injetado o encontraria), e a sessão volta ao recarregar a página por um *iframe* silencioso no Keycloak.
 
 ## 📈 Observabilidade
 
@@ -145,6 +145,10 @@ Cada pedido gera um *trace* do **OpenTelemetry** que atravessa os cinco serviço
 </p>
 
 As métricas vão para o **Prometheus**, e o painel do **Grafana** é código ([`infra/grafana`](infra/grafana)): pedidos confirmados e cancelados, tempo da saga (p50 e p95) por desfecho, eventos parados no outbox, mensagens no DLT, atraso dos consumidores do Kafka e memória da JVM. Cinco alertas, também como código ([`alertas.yml`](infra/prometheus/alertas.yml)): serviço fora do ar, outbox acumulando, mensagem no DLT, saga lenta e consumidor atrasado.
+
+<p align="center">
+  <img src="docs/img/grafana.png" alt="Painel do Grafana: pedidos confirmados e cancelados, tempo da saga, outbox e DLT zerados, requisições no gateway, atraso dos consumidores do Kafka e memória da JVM" width="900">
+</p>
 
 ## 🔒 Segurança
 
@@ -164,8 +168,8 @@ Resumo abaixo; modelo de ameaças, limites conhecidos e como relatar uma falha e
 Precisa só de **Docker**. A primeira subida leva alguns minutos, porque o Maven compila os cinco serviços dentro do Docker.
 
 ```bash
-git clone https://github.com/nicole21carvalho/vitrine.git
-cd vitrine
+git clone https://github.com/nicole21carvalho/sagaz-microservices-kafka.git
+cd sagaz-microservices-kafka
 
 # Uma senha aleatória para cada banco e para o admin do Keycloak
 for v in DB_SENHA_ADMIN DB_SENHA_PEDIDOS DB_SENHA_ESTOQUE DB_SENHA_PAGAMENTOS \
@@ -190,9 +194,9 @@ Abra **http://localhost:5173**, clique em **Entrar ou criar conta** e cadastre-s
 Tudo escuta só em `127.0.0.1`: nada fica acessível para outros computadores da rede.
 
 <p align="center">
-  <img src="docs/img/login-keycloak.png" alt="Tela de login do Keycloak em português, com o nome Vitrine" height="380">
+  <img src="docs/img/login-keycloak.png" alt="Tela de login do Keycloak em português, com o nome Sagaz" height="380">
   &nbsp;
-  <img src="docs/img/celular.png" alt="Catálogo da Vitrine numa tela de celular" height="380">
+  <img src="docs/img/celular.png" alt="Catálogo da Sagaz numa tela de celular" height="380">
 </p>
 
 ### 🧪 Testes
@@ -233,7 +237,7 @@ Toda chamada passa pelo gateway (`/api`).
 ## 📁 Estrutura
 
 ```
-vitrine/
+sagaz/
 ├── comum/            eventos, outbox, consumo idempotente, retenção (usado por todos)
 ├── gateway/          porta de entrada: JWT, rotas liberadas, rate limiting, CORS
 ├── pedidos/          pedido e sua máquina de estados; acompanha a saga

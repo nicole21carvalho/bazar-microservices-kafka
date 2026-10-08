@@ -1,8 +1,8 @@
-# Vitrine no Kubernetes (k3s na Oracle Cloud, ou qualquer cluster).
+# Sagaz no Kubernetes (k3s na Oracle Cloud, ou qualquer cluster).
 # Na nuvem, quem aplica este arquivo e o Flux (veja infra/README.md). Em
 # outro cluster:
-#   1. crie o namespace vitrine e o Secret vitrine-segredos (infra/README.md)
-#   2. troque vitrine.example.com pelo seu dominio, aqui embaixo
+#   1. crie o namespace sagaz e o Secret sagaz-segredos (infra/README.md)
+#   2. troque sagaz.example.com pelo seu dominio, aqui embaixo
 #   3. kubectl apply -k infra/
 #
 # A raiz fica em infra/, e nao em infra/k8s/, porque os ConfigMaps saem dos
@@ -10,11 +10,11 @@
 # Postgres): uma fonte so, sem copia para desatualizar.
 apiVersion: kustomize.config.k8s.io/v1beta1
 kind: Kustomization
-namespace: vitrine
+namespace: sagaz
 
 labels:
   - pairs:
-      app.kubernetes.io/part-of: vitrine
+      app.kubernetes.io/part-of: sagaz
     includeSelectors: false
 
 resources:
@@ -29,13 +29,13 @@ resources:
   - k8s/network-policies.yaml
 
 configMapGenerator:
-  - name: vitrine-endereco
+  - name: sagaz-endereco
     literals:
-      - DOMINIO=vitrine.example.com
-      - URL_PUBLICA=https://vitrine.example.com
+      - DOMINIO=sagaz.example.com
+      - URL_PUBLICA=https://sagaz.example.com
   - name: keycloak-realm
     files:
-      - keycloak/vitrine-realm.json
+      - keycloak/sagaz-realm.json
   - name: postgres-init
     files:
       - postgres/criar-bancos.sh
@@ -60,12 +60,12 @@ patches:
 replacements:
   - source:
       kind: ConfigMap
-      name: vitrine-endereco
+      name: sagaz-endereco
       fieldPath: data.DOMINIO
     targets:
       - select:
           kind: Ingress
-          name: vitrine
+          name: sagaz
         fieldPaths:
           - spec.rules.0.host
           - spec.tls.0.hosts.0
@@ -73,21 +73,21 @@ replacements:
 # As imagens sao publicadas pelo CI no GitHub Container Registry, em x86 e ARM,
 # assinadas com cosign. O job de deploy do CI troca a tag pelo SHA do commit.
 images:
-  - name: vitrine-gateway
-    newName: ghcr.io/nicole21carvalho/vitrine-gateway
+  - name: sagaz-gateway
+    newName: ghcr.io/nicole21carvalho/sagaz-gateway
     newTag: latest
-  - name: vitrine-pedidos
-    newName: ghcr.io/nicole21carvalho/vitrine-pedidos
+  - name: sagaz-pedidos
+    newName: ghcr.io/nicole21carvalho/sagaz-pedidos
     newTag: latest
-  - name: vitrine-estoque
-    newName: ghcr.io/nicole21carvalho/vitrine-estoque
+  - name: sagaz-estoque
+    newName: ghcr.io/nicole21carvalho/sagaz-estoque
     newTag: latest
-  - name: vitrine-pagamentos
-    newName: ghcr.io/nicole21carvalho/vitrine-pagamentos
+  - name: sagaz-pagamentos
+    newName: ghcr.io/nicole21carvalho/sagaz-pagamentos
     newTag: latest
-  - name: vitrine-notificacoes
-    newName: ghcr.io/nicole21carvalho/vitrine-notificacoes
+  - name: sagaz-notificacoes
+    newName: ghcr.io/nicole21carvalho/sagaz-notificacoes
     newTag: latest
-  - name: vitrine-web
-    newName: ghcr.io/nicole21carvalho/vitrine-web
+  - name: sagaz-web
+    newName: ghcr.io/nicole21carvalho/sagaz-web
     newTag: latest

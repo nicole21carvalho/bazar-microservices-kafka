@@ -56,6 +56,12 @@ export default function App() {
             recarregarProdutos();
             listarPedidos().then(setPedidos).catch(() => {});
           }
+          // A devolucao dos itens (compensacao) acontece depois do cancelamento:
+          // o PedidoCancelado ainda passa pelo outbox e pelo Kafka ate o estoque.
+          // Recarrega o catalogo mais duas vezes para mostrar o estoque de volta.
+          if (p.status === "CANCELADO") {
+            for (const espera of [1500, 4000]) setTimeout(recarregarProdutos, espera);
+          }
         })
         .catch((e) => setErro(mensagemDe(e)));
     }, 1000);
@@ -91,7 +97,7 @@ export default function App() {
       <header className="border-b border-borda bg-painel">
         <div className="mx-auto flex max-w-6xl items-center justify-between px-4 py-3">
           <span className="text-xl font-bold tracking-tight">
-            🛍️ Vitrine
+            🛍️ Sagaz
           </span>
           <div className="flex items-center gap-4 text-sm">
             {quantidadeTotal(carrinho) > 0 && (

@@ -20,7 +20,7 @@ spec:
           type: RuntimeDefault
       containers:
         - name: web
-          image: vitrine-web
+          image: sagaz-web
           ports:
             - containerPort: 8080
           readinessProbe:

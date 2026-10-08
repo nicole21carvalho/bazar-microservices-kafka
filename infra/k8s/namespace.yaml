@@ -1,7 +1,7 @@
 apiVersion: v1
 kind: Namespace
 metadata:
-  name: vitrine
+  name: sagaz
   labels:
     # Pod Security "restricted": o cluster recusa pod que rode como root, ganhe
     # privilegio, monte disco do no ou mantenha capacidades do Linux.
