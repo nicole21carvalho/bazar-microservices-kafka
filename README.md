@@ -8,7 +8,7 @@
 
 <p align="center">
   <a href="../../actions/workflows/ci.yml"><img src="../../actions/workflows/ci.yml/badge.svg" alt="CI/CD"></a>
-  <img src="https://img.shields.io/badge/Java-21-ED8B00?logo=openjdk&logoColor=white" alt="Java 21">
+  <img src="https://img.shields.io/badge/Java-25-ED8B00?logo=openjdk&logoColor=white" alt="Java 25">
   <img src="https://img.shields.io/badge/Spring%20Boot-4-6DB33F?logo=springboot&logoColor=white" alt="Spring Boot">
   <img src="https://img.shields.io/badge/Apache%20Kafka-231F20?logo=apachekafka&logoColor=white" alt="Kafka">
   <img src="https://img.shields.io/badge/PostgreSQL-4169E1?logo=postgresql&logoColor=white" alt="PostgreSQL">
@@ -106,10 +106,10 @@ O serviço de pagamentos simula uma operadora: aprova compras de até R$ 1.000,0
 
 | Área | Tecnologias |
 |---|---|
-| ⚙️ **Back-end** | Java 21 · Spring Boot 4 · Spring Cloud Gateway · Spring Data JPA · Flyway · PostgreSQL 18 · Bean Validation |
+| ⚙️ **Back-end** | Java 25 · Spring Boot 4 · Spring Cloud Gateway · Spring Data JPA · Flyway · PostgreSQL 18 · Bean Validation |
 | 📨 **Mensageria** | Apache Kafka 4 (KRaft, sem ZooKeeper) · Spring Kafka · saga coreografada · Transactional Outbox · consumo idempotente · Dead Letter Topic |
 | 🔐 **Segurança** | Keycloak 26 · OAuth2 / OpenID Connect · PKCE · JWT (emissor e audiência) · rate limiting (Bucket4j) · CSP rígida |
-| 🎨 **Front-end** | React 19 · TypeScript 6 · Vite 8 · Tailwind CSS 4 · oidc-client-ts · nginx sem root |
+| 🎨 **Front-end** | React 19 · TypeScript 7 · Vite 8 · Tailwind CSS 4 · oidc-client-ts · nginx sem root |
 | 📈 **Observabilidade** | OpenTelemetry · Jaeger · Micrometer · Prometheus · Grafana (painel como código) · alertas |
 | ✅ **Qualidade** | JUnit 5 · Testcontainers (Postgres e Kafka reais) · Vitest · Testing Library · oxlint · teste de ponta a ponta |
 | 🚀 **DevOps** | Docker (multi-stage, multi-arquitetura) · Docker Compose · GitHub Actions · GHCR · Kubernetes (k3s) + Kustomize · NetworkPolicy · Terraform · Oracle Cloud · Flux (GitOps) · cert-manager · cosign · SBOM · osv-scanner · Dependabot |
@@ -201,7 +201,7 @@ Tudo escuta só em `127.0.0.1`: nada fica acessível para outros computadores da
 
 ### 🧪 Testes
 
-Os do back-end precisam de Java 21, Maven e Docker:
+Os do back-end precisam de Java 25, Maven e Docker:
 
 ```bash
 mvn verify                    # 37 testes; sobe Postgres e Kafka de verdade (Testcontainers)

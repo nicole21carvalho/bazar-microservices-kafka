@@ -26,6 +26,16 @@ updates:
     schedule: { interval: weekly }
     groups:
       imagens-base: { patterns: ["*"] }
+    # Java e Node ficam em versoes LTS (suporte longo). Subir para o proximo
+    # LTS e uma decisao, com pom, CI e README juntos; o Dependabot cuida das
+    # atualizacoes menores e de seguranca dentro da versao atual.
+    ignore:
+      - dependency-name: "maven"
+        update-types: ["version-update:semver-major"]
+      - dependency-name: "eclipse-temurin"
+        update-types: ["version-update:semver-major"]
+      - dependency-name: "node"
+        update-types: ["version-update:semver-major"]
 
   - package-ecosystem: docker-compose
     directory: /
