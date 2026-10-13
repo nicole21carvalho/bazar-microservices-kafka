@@ -215,6 +215,12 @@ Os testes de integração usam **Postgres e Kafka reais**, e não versões em me
 
 O [teste de ponta a ponta](scripts/teste_ponta_a_ponta.py) cria usuários temporários no Keycloak (com senhas aleatórias), percorre a loja inteira (login, saga, compensação, e-mails, limite de requisições e o *trace* pelos cinco serviços) e apaga tudo no final. Ele também roda contra o cluster Kubernetes.
 
+## 🤖 Atendimento com IA (opcional)
+
+O painel pode ganhar um chat com um **agente de IA** que consulta pedidos, mostra o catálogo e faz compras, sempre em nome do cliente logado e **pedindo confirmação antes de comprar**. O agente mora num repositório próprio, [bazar-ai-agent-mcp](https://github.com/nicole21carvalho/bazar-ai-agent-mcp): LangGraph, um servidor **MCP** para as ferramentas do Bazar e troca de token (RFC 8693) a cada etapa, para nenhum serviço receber um token que não foi emitido para ele.
+
+Para ligar, ponha `AGENTE_URL=http://localhost:8000` no `.env`, suba o Bazar e depois o agente, pelo repositório dele. Sem essa variável, o painel funciona como sempre, sem o chat.
+
 ## ☁️ Da main para a nuvem
 
 O sistema roda num **Kubernetes (k3s)** numa VM ARM do nível gratuito da **Oracle Cloud**, criada com **Terraform**. O deploy é **GitOps**: o CI testa, publica as imagens assinadas e registra a nova versão no repositório; o **Flux**, de dentro do cluster, percebe e aplica. O CI não tem credencial nenhuma do cluster, e nenhuma porta de administração fica aberta para a internet.

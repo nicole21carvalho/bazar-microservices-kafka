@@ -9,9 +9,11 @@ import {
   type Pedido,
   type Produto,
 } from "./api/api";
+import { atendimentoAtivo } from "./agente/agente";
 import { entrar, sair } from "./auth/auth";
 import { useUsuario } from "./auth/useUsuario";
 import { adicionar, type Carrinho, paraItens, quantidadeTotal, remover } from "./carrinho/carrinho";
+import { Atendimento } from "./componentes/Atendimento";
 import { CarrinhoLateral } from "./componentes/CarrinhoLateral";
 import { Catalogo } from "./componentes/Catalogo";
 import { MeusPedidos } from "./componentes/MeusPedidos";
@@ -149,6 +151,15 @@ export default function App() {
           {usuario && <MeusPedidos pedidos={pedidos} aoAbrir={(id) => void abrir(id)} />}
         </aside>
       </main>
+      {usuario && atendimentoAtivo && (
+        <Atendimento
+          produtos={produtos}
+          aoMudarPedidos={() => {
+            recarregarProdutos();
+            listarPedidos().then(setPedidos).catch(() => {});
+          }}
+        />
+      )}
     </div>
   );
 }

@@ -199,6 +199,9 @@ services:
         # Local, cada um na sua porta. Na nuvem ficam vazios: tudo no mesmo dominio.
         API_URL: http://localhost:8080
         KEYCLOAK_URL: http://localhost:8180/realms/bazar
+        # Chat de atendimento com IA: ligue com AGENTE_URL=http://localhost:8000 no
+        # .env (o agente roda pelo repositorio bazar-ai-agent-mcp). Vazio: sem chat.
+        AGENTE_URL: ${AGENTE_URL:-}
     read_only: true
     tmpfs:
       - /tmp:size=16m

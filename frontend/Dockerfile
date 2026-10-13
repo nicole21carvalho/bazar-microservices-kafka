@@ -8,15 +8,20 @@ WORKDIR /app
 # passa os enderecos com porta (localhost:8080 e localhost:8180).
 ARG API_URL=
 ARG KEYCLOAK_URL=
+# Agente de atendimento (repositorio bazar-ai-agent-mcp). Vazio: painel sem chat.
+ARG AGENTE_URL=
 ENV VITE_API_URL=${API_URL} \
-    VITE_KEYCLOAK_URL=${KEYCLOAK_URL}
+    VITE_KEYCLOAK_URL=${KEYCLOAK_URL} \
+    VITE_AGENTE_URL=${AGENTE_URL}
 COPY package.json package-lock.json ./
 RUN npm ci
 COPY . .
 # A CSP precisa da origem (esquema + host + porta), e nao do caminho do realm.
 RUN npm run build \
  && ORIGEM_KC=$(echo "${KEYCLOAK_URL}" | sed -E 's#^(https?://[^/]+).*#\1#') \
- && sed -e "s#__API__#${API_URL}#g" -e "s#__KEYCLOAK__#${ORIGEM_KC}#g" nginx.conf > nginx.final.conf
+ && ORIGEM_AGENTE=$(echo "${AGENTE_URL}" | sed -E 's#^(https?://[^/]+).*#\1#') \
+ && sed -e "s#__API__#${API_URL}#g" -e "s#__KEYCLOAK__#${ORIGEM_KC}#g" -e "s#__AGENTE__#${ORIGEM_AGENTE}#g" \
+      nginx.conf > nginx.final.conf
 
 # Estagio 2: so o nginx e os arquivos prontos. A variante unprivileged roda sem root.
 FROM nginxinc/nginx-unprivileged:1.31-alpine
