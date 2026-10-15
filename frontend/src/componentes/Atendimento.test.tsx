@@ -12,7 +12,10 @@ async function* eventos(...lista: EventoAgente[]): AsyncGenerator<EventoAgente> 
   for (const e of lista) yield e;
 }
 
-const produtos: Produto[] = [{ id: "cafe-especial", nome: "Café especial 250 g", preco: 42.9, disponivel: 100 }];
+const produtos: Produto[] = [
+  { id: "cafe-especial", nome: "Café especial 250 g", preco: 42.9, disponivel: 100 },
+  { id: "monitor-27", nome: 'Monitor 27" 4K', preco: 1899, disponivel: 10 },
+];
 
 function abrir(aoMudarPedidos = vi.fn()) {
   render(<Atendimento produtos={produtos} aoMudarPedidos={aoMudarPedidos} />);
@@ -50,7 +53,7 @@ describe("Atendimento", () => {
   it("compra só acontece depois do clique em confirmar, com nome e preço do catálogo", async () => {
     agente.conversar.mockReturnValue(
       eventos(
-        { tipo: "confirmacao", ferramenta: "criar_pedido", argumentos: { itens: [{ produto_id: "cafe-especial", quantidade: 2 }] } },
+        { tipo: "confirmacao", ferramenta: "criar_pedido", itens: [{ produtoId: "cafe-especial", quantidade: 2 }] },
         { tipo: "fim" },
       ),
     );
@@ -71,9 +74,28 @@ describe("Atendimento", () => {
     expect(agente.confirmar).toHaveBeenCalledWith(conversaDaMensagem, true); // a mesma conversa
   });
 
+  it("pedido acima do limite da operadora mostra o aviso no cartão", async () => {
+    agente.conversar.mockReturnValue(
+      eventos({ tipo: "confirmacao", ferramenta: "criar_pedido", itens: [{ produtoId: "monitor-27", quantidade: 1 }] }, { tipo: "fim" }),
+    );
+    abrir();
+    escrever("Quero o monitor");
+    expect((await screen.findByRole("note")).textContent).toMatch(/recusa pagamentos acima de R\$\s*1\.000,00/);
+  });
+
+  it("pedido dentro do limite não mostra aviso", async () => {
+    agente.conversar.mockReturnValue(
+      eventos({ tipo: "confirmacao", ferramenta: "criar_pedido", itens: [{ produtoId: "cafe-especial", quantidade: 1 }] }, { tipo: "fim" }),
+    );
+    abrir();
+    escrever("Quero um café");
+    await screen.findByText("Confirmar este pedido?");
+    expect(screen.queryByRole("note")).toBeNull();
+  });
+
   it("recusar avisa o agente com um não", async () => {
     agente.conversar.mockReturnValue(
-      eventos({ tipo: "confirmacao", ferramenta: "criar_pedido", argumentos: { itens: [] } }, { tipo: "fim" }),
+      eventos({ tipo: "confirmacao", ferramenta: "criar_pedido", itens: [] }, { tipo: "fim" }),
     );
     agente.confirmar.mockReturnValue(eventos({ tipo: "fim" }));
     abrir();

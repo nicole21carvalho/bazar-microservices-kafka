@@ -6,12 +6,25 @@ import { lerEventos } from "./sse";
 const AGENTE = import.meta.env.VITE_AGENTE_URL ?? "";
 export const atendimentoAtivo = AGENTE !== "";
 
-export type ItemProposto = { produto_id: string; quantidade: number };
+// No formato do esquema da ferramenta criar_pedido (o mesmo da API do Bazar): produtoId.
+export type ItemProposto = { produtoId: string; quantidade: number };
+
+/** Os itens que o modelo propôs, conferidos: só entram id de texto e quantidade inteira positiva. */
+export function itensPropostos(argumentos: unknown): ItemProposto[] {
+  const itens = (argumentos as { itens?: unknown } | null)?.itens;
+  if (!Array.isArray(itens)) return [];
+  return itens.flatMap((item) => {
+    const { produtoId, quantidade } = (item ?? {}) as { produtoId?: unknown; quantidade?: unknown };
+    return typeof produtoId === "string" && Number.isInteger(quantidade) && (quantidade as number) > 0
+      ? [{ produtoId, quantidade: quantidade as number }]
+      : [];
+  });
+}
 
 export type EventoAgente =
   | { tipo: "texto"; texto: string }
   | { tipo: "ferramenta"; nome: string }
-  | { tipo: "confirmacao"; ferramenta: string; argumentos: { itens?: ItemProposto[] } }
+  | { tipo: "confirmacao"; ferramenta: string; itens: ItemProposto[] }
   | { tipo: "erro"; mensagem: string }
   | { tipo: "fim" };
 
@@ -54,7 +67,7 @@ async function* enviar(caminho: string, corpo: unknown): AsyncGenerator<EventoAg
     if (evento === "texto") yield { tipo: "texto", texto: String(valor.texto) };
     else if (evento === "ferramenta") yield { tipo: "ferramenta", nome: String(valor.nome) };
     else if (evento === "confirmacao")
-      yield { tipo: "confirmacao", ferramenta: String(valor.ferramenta), argumentos: valor.argumentos ?? {} };
+      yield { tipo: "confirmacao", ferramenta: String(valor.ferramenta), itens: itensPropostos(valor.argumentos) };
     else if (evento === "erro") yield { tipo: "erro", mensagem: String(valor.mensagem) };
     else if (evento === "fim") yield { tipo: "fim" };
   }

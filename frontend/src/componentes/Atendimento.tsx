@@ -5,6 +5,10 @@ import type { Produto } from "../api/api";
 import { reais } from "../carrinho/carrinho";
 
 type Mensagem = { autor: "cliente" | "atendente"; texto: string };
+
+// O limite de aprovação do serviço de pagamentos (LIMITE_APROVACAO). O aviso é do cartão, e
+// não do modelo: nas avaliações, nenhum modelo avisou sozinho.
+const LIMITE_DO_PAGAMENTO = 1000;
 type Pendente = { itens: ItemProposto[] };
 
 const ATIVIDADES: Record<string, string> = {
@@ -55,7 +59,7 @@ export function Atendimento({ produtos, aoMudarPedidos }: Props) {
               : [...atuais.slice(0, -1), { autor: "atendente", texto: atuais[atuais.length - 1].texto + evento.texto }],
           );
         } else if (evento.tipo === "confirmacao") {
-          setPendente({ itens: evento.argumentos.itens ?? [] });
+          setPendente({ itens: evento.itens });
         } else if (evento.tipo === "erro") {
           setErro(evento.mensagem);
         }
@@ -86,7 +90,7 @@ export function Atendimento({ produtos, aoMudarPedidos }: Props) {
   }
 
   const porId = new Map(produtos.map((p) => [p.id, p]));
-  const estimado = pendente?.itens.reduce((soma, i) => soma + (porId.get(i.produto_id)?.preco ?? 0) * i.quantidade, 0);
+  const estimado = pendente?.itens.reduce((soma, i) => soma + (porId.get(i.produtoId)?.preco ?? 0) * i.quantidade, 0);
 
   if (!aberto) {
     return (
@@ -133,11 +137,11 @@ export function Atendimento({ produtos, aoMudarPedidos }: Props) {
             <p className="font-medium">Confirmar este pedido?</p>
             <ul className="mt-2 space-y-1">
               {pendente.itens.map((item) => {
-                const produto = porId.get(item.produto_id);
+                const produto = porId.get(item.produtoId);
                 return (
-                  <li key={item.produto_id} className="flex justify-between gap-2">
+                  <li key={item.produtoId} className="flex justify-between gap-2">
                     <span>
-                      {item.quantidade}× {produto?.nome ?? item.produto_id}
+                      {item.quantidade}× {produto?.nome ?? item.produtoId}
                     </span>
                     {produto && <span>{reais.format(produto.preco * item.quantidade)}</span>}
                   </li>
@@ -146,6 +150,12 @@ export function Atendimento({ produtos, aoMudarPedidos }: Props) {
             </ul>
             {estimado !== undefined && estimado > 0 && (
               <p className="mt-2 text-xs text-suave">Total estimado: {reais.format(estimado)}</p>
+            )}
+            {estimado !== undefined && estimado > LIMITE_DO_PAGAMENTO && (
+              <p role="note" className="mt-2 rounded-lg bg-perigo/10 px-2 py-1 text-xs text-perigo">
+                A operadora recusa pagamentos acima de {reais.format(LIMITE_DO_PAGAMENTO)}: este pedido vai ser
+                cancelado no pagamento.
+              </p>
             )}
             <div className="mt-3 flex gap-2">
               <button
