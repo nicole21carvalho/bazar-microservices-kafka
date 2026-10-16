@@ -136,6 +136,8 @@ As escolhas que mais pesaram no resultado, e o porquê de cada uma.
 
 **9. O token é validado duas vezes, e só existe na memória do navegador.** O gateway confere emissor, audiência (`bazar-api`) e validade do JWT, e o serviço de pedidos confere de novo: quem chegar à rede interna sem passar pelo gateway continua barrado. O e-mail só é aceito se o Keycloak disser que foi confirmado. No navegador, o token fica **só na memória** (nada no `localStorage`, onde um script injetado o encontraria), e a sessão volta ao recarregar a página por um *iframe* silencioso no Keycloak.
 
+**10. Repetir a criação de um pedido não compra duas vezes.** Quando a resposta se perde (timeout, gateway que desistiu de esperar), quem chamou não sabe se o pedido foi criado. O `POST /api/pedidos` aceita o cabeçalho `Idempotency-Key`: a mesma chave, do mesmo cliente, devolve o pedido que já existe (com `Idempotent-Replayed: true`), e a mesma chave com outros itens é recusada (`422`). A chave é gravada **antes** do pedido, e a chave primária decide: dez requisições iguais ao mesmo tempo esperam umas pelas outras e criam um pedido só, como mostra o teste. As chaves vencem em 24 h. O problema apareceu num *trace* do [agente de atendimento](https://github.com/nicole21carvalho/bazar-ai-agent-mcp): com o Bazar lento, o pedido era criado, mas a resposta chegava tarde demais.
+
 ## 📈 Observabilidade
 
 Cada pedido gera um *trace* do **OpenTelemetry** que atravessa os cinco serviços e o Kafka: dá para ver quanto tempo cada etapa levou e onde um pedido parou.
@@ -204,8 +206,8 @@ Tudo escuta só em `127.0.0.1`: nada fica acessível para outros computadores da
 Os do back-end precisam de Java 25, Maven e Docker:
 
 ```bash
-mvn verify                    # 37 testes; sobe Postgres e Kafka de verdade (Testcontainers)
-cd frontend && npm test       # 11 testes (Vitest + Testing Library)
+mvn verify                    # 42 testes; sobe Postgres e Kafka de verdade (Testcontainers)
+cd frontend && npm test       # 25 testes (Vitest + Testing Library)
 
 # Com o sistema rodando: 15 verificações de ponta a ponta
 pip install httpx && python scripts/teste_ponta_a_ponta.py
@@ -236,7 +238,7 @@ Toda chamada passa pelo gateway (`/api`).
 | Método | Rota | O que faz |
 |---|---|---|
 | `GET` | `/api/produtos` | Catálogo com preço e estoque disponível (aberto, sem login) |
-| `POST` | `/api/pedidos` | Cria o pedido e responde `202`: a saga continua em segundo plano |
+| `POST` | `/api/pedidos` | Cria o pedido e responde `202`: a saga continua em segundo plano. Com `Idempotency-Key`, pode ser repetido sem criar outro pedido |
 | `GET` | `/api/pedidos/{id}` | Situação do pedido (o painel consulta a cada segundo para mostrar a saga andando) |
 | `GET` | `/api/pedidos` | Pedidos do cliente logado |
 

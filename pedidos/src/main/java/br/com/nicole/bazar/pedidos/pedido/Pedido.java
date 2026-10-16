@@ -66,7 +66,12 @@ public class Pedido {
     protected Pedido() {}
 
     public Pedido(String clienteId, String clienteEmail, List<Item> itens) {
-        this.id = UUID.randomUUID();
+        this(UUID.randomUUID(), clienteId, clienteEmail, itens);
+    }
+
+    /** Com o id escolhido antes: a chave de idempotencia aponta para ele. */
+    public Pedido(UUID id, String clienteId, String clienteEmail, List<Item> itens) {
+        this.id = id;
         this.clienteId = clienteId;
         this.clienteEmail = clienteEmail;
         this.itens = new ArrayList<>(itens);

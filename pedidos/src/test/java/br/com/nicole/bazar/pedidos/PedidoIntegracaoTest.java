@@ -7,7 +7,16 @@ import static org.springframework.security.test.web.servlet.request.SecurityMock
 import java.math.BigDecimal;
 import java.nio.charset.StandardCharsets;
 import java.time.Duration;
+import java.util.HashSet;
+import java.util.List;
+import java.util.Set;
 import java.util.UUID;
+import java.util.concurrent.CountDownLatch;
+import java.util.concurrent.ExecutorService;
+import java.util.concurrent.Executors;
+import java.util.concurrent.Future;
+import java.util.concurrent.TimeUnit;
+import java.util.stream.IntStream;
 
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
@@ -21,6 +30,7 @@ import org.springframework.jdbc.core.JdbcTemplate;
 import org.springframework.kafka.core.ConsumerFactory;
 import org.springframework.kafka.core.KafkaTemplate;
 import org.springframework.test.web.servlet.assertj.MockMvcTester;
+import org.springframework.test.web.servlet.assertj.MvcTestResult;
 import org.springframework.test.web.servlet.request.RequestPostProcessor;
 
 import br.com.nicole.bazar.comum.eventos.Evento.EstoqueRecusado;
@@ -192,6 +202,90 @@ class PedidoIntegracaoTest {
         var traceparent = mensagem.headers().lastHeader("traceparent");
         assertThat(traceparent).as("cabecalho traceparent na mensagem").isNotNull();
         assertThat(new String(traceparent.value(), StandardCharsets.UTF_8)).contains(traceId);
+    }
+
+    private MvcTestResult postarComChave(String cliente, String chave, String corpo) {
+        return http.post().uri("/api/pedidos")
+                .with(cliente(cliente))
+                .header("Idempotency-Key", chave)
+                .contentType(MediaType.APPLICATION_JSON)
+                .content(corpo)
+                .exchange();
+    }
+
+    private static final String DOIS_CAFES = "{\"itens\": [{\"produtoId\": \"cafe-especial\", \"quantidade\": 2}]}";
+
+    private int pedidosDe(String cliente) {
+        return pedidos.findTop20ByClienteIdOrderByCriadoEmDesc(cliente).size();
+    }
+
+    @Test
+    void repetir_a_chave_de_idempotencia_devolve_o_mesmo_pedido_sem_criar_outro() {
+        String chave = UUID.randomUUID().toString();
+
+        var primeira = postarComChave("kiko", chave, DOIS_CAFES);
+        // O mesmo pedido, com o mesmo item escrito em duas linhas: a soma e igual.
+        var repetida = postarComChave("kiko", chave, """
+                {"itens": [{"produtoId": "cafe-especial", "quantidade": 1},
+                           {"produtoId": "cafe-especial", "quantidade": 1}]}
+                """);
+
+        assertThat(primeira).hasStatus(HttpStatus.ACCEPTED).doesNotContainHeader("Idempotent-Replayed");
+        assertThat(repetida).hasStatus(HttpStatus.ACCEPTED).hasHeader("Idempotent-Replayed", "true");
+        assertThat(repetida.getResponse().getHeader("Location"))
+                .isEqualTo(primeira.getResponse().getHeader("Location"));
+        assertThat(pedidosDe("kiko")).isEqualTo(1);
+    }
+
+    @Test
+    void a_mesma_chave_com_outros_itens_responde_422_sem_criar_pedido() {
+        String chave = UUID.randomUUID().toString();
+        postarComChave("lia", chave, DOIS_CAFES);
+
+        assertThat(postarComChave("lia", chave, "{\"itens\": [{\"produtoId\": \"caneca-ceramica\", \"quantidade\": 1}]}"))
+                .hasStatus(HttpStatus.UNPROCESSABLE_ENTITY);
+        assertThat(pedidosDe("lia")).isEqualTo(1);
+    }
+
+    @Test
+    void a_chave_vale_so_para_o_proprio_cliente() {
+        String chave = UUID.randomUUID().toString();
+
+        var daMaya = postarComChave("maya", chave, DOIS_CAFES);
+        var doNico = postarComChave("nico", chave, DOIS_CAFES);
+
+        assertThat(doNico).hasStatus(HttpStatus.ACCEPTED).doesNotContainHeader("Idempotent-Replayed");
+        assertThat(doNico.getResponse().getHeader("Location"))
+                .isNotEqualTo(daMaya.getResponse().getHeader("Location"));
+    }
+
+    @Test
+    void dez_requisicoes_ao_mesmo_tempo_com_a_mesma_chave_criam_um_pedido_so() throws Exception {
+        String chave = UUID.randomUUID().toString();
+        var largada = new CountDownLatch(1);
+        try (ExecutorService threads = Executors.newFixedThreadPool(10)) {
+            List<Future<String>> locais = IntStream.range(0, 10).mapToObj(i -> threads.submit(() -> {
+                largada.await();
+                var resposta = postarComChave("otto", chave, DOIS_CAFES);
+                assertThat(resposta).hasStatus(HttpStatus.ACCEPTED);
+                return resposta.getResponse().getHeader("Location");
+            })).toList();
+            largada.countDown();
+
+            Set<String> distintos = new HashSet<>();
+            for (Future<String> local : locais) {
+                distintos.add(local.get(30, TimeUnit.SECONDS));
+            }
+            assertThat(distintos).hasSize(1);
+        }
+        assertThat(pedidosDe("otto")).isEqualTo(1);
+    }
+
+    @Test
+    void chave_de_idempotencia_invalida_responde_400_sem_criar_pedido() {
+        assertThat(postarComChave("pia", "curta", DOIS_CAFES)).hasStatus(HttpStatus.BAD_REQUEST);
+        assertThat(postarComChave("pia", "com espaco e acento é", DOIS_CAFES)).hasStatus(HttpStatus.BAD_REQUEST);
+        assertThat(pedidosDe("pia")).isZero();
     }
 
     @Test

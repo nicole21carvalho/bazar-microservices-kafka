@@ -12,6 +12,7 @@ import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.PathVariable;
 import org.springframework.web.bind.annotation.PostMapping;
 import org.springframework.web.bind.annotation.RequestBody;
+import org.springframework.web.bind.annotation.RequestHeader;
 import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.RestController;
 import org.springframework.web.server.ResponseStatusException;
@@ -50,6 +51,9 @@ public class PedidoController {
         }
     }
 
+    // UUID cabe aqui, e tambem qualquer chave aleatoria longa o bastante.
+    private static final java.util.regex.Pattern CHAVE_VALIDA = java.util.regex.Pattern.compile("[A-Za-z0-9_-]{8,100}");
+
     private final PedidoService servico;
     private final PedidoRepository pedidos;
 
@@ -61,14 +65,32 @@ public class PedidoController {
     /**
      * 202 Accepted, e nao 201: o pedido foi recebido, mas estoque e pagamento
      * ainda vao decidir. O cliente acompanha pelo endereco do Location.
+     *
+     * O cabecalho Idempotency-Key (opcional) torna a chamada segura de repetir:
+     * a mesma chave devolve o mesmo pedido, com "Idempotent-Replayed: true".
      */
     @PostMapping
-    public ResponseEntity<PedidoSaida> criar(@Valid @RequestBody NovoPedido entrada, Cliente cliente) {
+    public ResponseEntity<PedidoSaida> criar(
+            @Valid @RequestBody NovoPedido entrada,
+            Cliente cliente,
+            @RequestHeader(name = "Idempotency-Key", required = false) String chave) {
+        if (chave != null && !CHAVE_VALIDA.matcher(chave).matches()) {
+            throw new ResponseStatusException(HttpStatus.BAD_REQUEST,
+                    "Idempotency-Key invalida: use de 8 a 100 letras, numeros, '-' ou '_'");
+        }
         var itens = entrada.itens().stream().map(i -> new Pedido.Item(i.produtoId(), i.quantidade())).toList();
-        Pedido pedido = servico.criar(cliente, itens);
-        return ResponseEntity.accepted()
-                .location(URI.create("/api/pedidos/" + pedido.getId()))
-                .body(PedidoSaida.de(pedido));
+        PedidoService.Criacao criacao;
+        try {
+            criacao = servico.criar(cliente, itens, chave);
+        } catch (PedidoService.ChaveReutilizada e) {
+            throw new ResponseStatusException(HttpStatus.UNPROCESSABLE_ENTITY, e.getMessage());
+        }
+        Pedido pedido = criacao.pedido();
+        var resposta = ResponseEntity.accepted().location(URI.create("/api/pedidos/" + pedido.getId()));
+        if (criacao.repetido()) {
+            resposta.header("Idempotent-Replayed", "true");
+        }
+        return resposta.body(PedidoSaida.de(pedido));
     }
 
     @GetMapping("/{id}")
