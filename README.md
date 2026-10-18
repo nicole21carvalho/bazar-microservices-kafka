@@ -24,6 +24,22 @@
   <img src="docs/img/painel.png" alt="Painel da loja com o catálogo e um pedido que passou por todas as etapas da saga até ser confirmado" width="900">
 </p>
 
+## 🌎 In English
+
+An online store built as **microservices that talk through events**. Every order goes through stock, payment and
+e-mail notification in a **choreographed saga with compensation**: if a step fails, the previous ones are undone,
+with no distributed transaction and no double charge.
+
+- Five Java 25 / Spring Boot services and **Kafka**: Transactional Outbox, idempotent consumers, Dead Letter Topic
+  and idempotent order creation (`Idempotency-Key`).
+- **Keycloak** (OIDC with PKCE): the JWT is validated at the gateway and again in the orders service.
+- Every order becomes an **OpenTelemetry trace** across all five services (Jaeger), with metrics and alerts in Grafana.
+- Kubernetes (k3s) manifests, **Terraform** for Oracle Cloud and **GitOps with Flux**, tested end to end on a local k3s.
+- 42 integration tests with real PostgreSQL and Kafka (Testcontainers), 25 front-end tests and 15 end-to-end checks.
+  *Java 25 · Spring Boot · Kafka · PostgreSQL · React · TypeScript · Kubernetes · Terraform.*
+
+*The rest of this README is in Portuguese.*
+
 ---
 
 ## 🎯 O problema
@@ -225,7 +241,7 @@ Para ligar, ponha `AGENTE_URL=http://localhost:8000` no `.env`, suba o Bazar e d
 
 ## ☁️ Da main para a nuvem
 
-O sistema roda num **Kubernetes (k3s)** numa VM ARM do nível gratuito da **Oracle Cloud**, criada com **Terraform**. O deploy é **GitOps**: o CI testa, publica as imagens assinadas e registra a nova versão no repositório; o **Flux**, de dentro do cluster, percebe e aplica. O CI não tem credencial nenhuma do cluster, e nenhuma porta de administração fica aberta para a internet.
+O sistema está pronto para rodar num **Kubernetes (k3s)** numa VM ARM do nível gratuito da **Oracle Cloud**, criada com **Terraform**, e foi testado com os mesmos manifestos num k3s local. O deploy é **GitOps**: o CI testa, publica as imagens assinadas e registra a nova versão no repositório; o **Flux**, de dentro do cluster, percebe e aplica. O CI não tem credencial nenhuma do cluster, e nenhuma porta de administração fica aberta para a internet.
 
 As imagens saem para x86 e ARM **sem emulação**: a compilação roda na arquitetura do próprio runner, e a etapa final só copia arquivos.
 
