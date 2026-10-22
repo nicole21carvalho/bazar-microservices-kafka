@@ -6,7 +6,7 @@
 # construindo, sempre nativa. Bytecode Java e o mesmo em x86 e ARM, entao so a
 # etapa final muda por arquitetura, e ela nao executa nada (so COPY): a imagem
 # ARM para a nuvem da Oracle sai sem emular processador, em segundos.
-FROM --platform=$BUILDPLATFORM maven:3.9-eclipse-temurin-25 AS build
+FROM --platform=$BUILDPLATFORM maven:3.9-eclipse-temurin-26 AS build
 ARG SERVICO
 WORKDIR /app
 # O projeto inteiro, e nao so o servico: o pom pai lista todos os modulos, e o
