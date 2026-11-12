@@ -14,7 +14,7 @@
     <description>Porta de entrada unica: valida o token e encaminha para cada servico</description>
 
     <properties>
-        <bucket4j.version>8.21.0</bucket4j.version>
+        <bucket4j.version>8.22.0</bucket4j.version>
     </properties>
 
     <dependencies>
